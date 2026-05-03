@@ -1,20 +1,42 @@
 using UnityEngine;
+using Unity.Netcode;
 
-public class PlayerShip : MonoBehaviour
+public class PlayerShip : NetworkBehaviour
 {
     public float moveSpeed = 5f;
     private Rigidbody2D rb;
+    private float halfWidth;
+    private float halfHeight;
+
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+        halfWidth = GetComponent<SpriteRenderer>().bounds.extents.x;
+        halfHeight = GetComponent<SpriteRenderer>().bounds.extents.y;
     }
 
-    // Update is called once per frame
     void Update()
     {
+        if (!IsOwner) return;
+
         float x = Input.GetAxis("Horizontal");
         float y = Input.GetAxis("Vertical");
 
         rb.linearVelocity = new Vector2(x, y) * moveSpeed;
+    }
+
+    void FixedUpdate()
+    {
+        if (!IsOwner) return;
+
+        Vector2 pos = rb.position;
+        Vector3 bottomLeft = Camera.main.ViewportToWorldPoint(new Vector3(0, 0, 0));
+        Vector3 topRight = Camera.main.ViewportToWorldPoint(new Vector3(1, 0.33f, 0));
+
+        pos.x = Mathf.Clamp(pos.x, bottomLeft.x + halfWidth, topRight.x - halfWidth);
+        pos.y = Mathf.Clamp(pos.y, bottomLeft.y + halfHeight, topRight.y - halfHeight);
+        rb.position = pos;
+
+        
     }
 }
