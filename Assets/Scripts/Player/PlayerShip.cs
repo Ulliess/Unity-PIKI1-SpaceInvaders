@@ -3,6 +3,9 @@ using Unity.Netcode;
 
 public class PlayerShip : NetworkBehaviour
 {
+    public GameObject bulletPrefab;
+    public float fireRate = 0.5f;
+    private float fireCooldown = 0f;
     public float moveSpeed = 5f;
     private Rigidbody2D rb;
     private float halfWidth;
@@ -23,6 +26,11 @@ public class PlayerShip : NetworkBehaviour
         float y = Input.GetAxis("Vertical");
 
         rb.linearVelocity = new Vector2(x, y) * moveSpeed;
+        fireCooldown -= Time.deltaTime;
+        if (fireCooldown <= 0f)
+        {
+            Shoot();
+        }
     }
 
     void FixedUpdate()
@@ -38,5 +46,12 @@ public class PlayerShip : NetworkBehaviour
         rb.position = pos;
 
         
+    }
+    void Shoot()
+    {
+        Vector3 spawnPos = rb.position;
+        GameObject bullet = Instantiate(bulletPrefab, spawnPos, Quaternion.identity);
+        Physics2D.IgnoreCollision(bullet.GetComponent<Collider2D>(), GetComponent<Collider2D>());
+        fireCooldown = 1f / fireRate;
     }
 }
