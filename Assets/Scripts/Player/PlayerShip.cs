@@ -14,8 +14,12 @@ public class PlayerShip : NetworkBehaviour
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
-        halfWidth = GetComponent<SpriteRenderer>().bounds.extents.x;
-        halfHeight = GetComponent<SpriteRenderer>().bounds.extents.y;
+        var spriteRenderer = GetComponent<SpriteRenderer>();
+        if (spriteRenderer != null)
+        {
+            halfWidth = spriteRenderer.bounds.extents.x;
+            halfHeight = spriteRenderer.bounds.extents.y;
+        }
     }
 
     void Update()
@@ -25,17 +29,22 @@ public class PlayerShip : NetworkBehaviour
         float x = Input.GetAxis("Horizontal");
         float y = Input.GetAxis("Vertical");
 
-        rb.linearVelocity = new Vector2(x, y) * moveSpeed;
+        if (rb != null)
+        {
+            rb.linearVelocity = new Vector2(x, y) * moveSpeed;
+        }
+
         fireCooldown -= Time.deltaTime;
         if (fireCooldown <= 0f)
         {
-            Shoot();
+            ShootServerRpc(rb != null ? (Vector2)rb.position : (Vector2)transform.position);
+            fireCooldown = 1f / fireRate;
         }
     }
 
     void FixedUpdate()
     {
-        if (!IsOwner) return;
+        if (!IsOwner || rb == null) return;
 
         Vector2 pos = rb.position;
         Vector3 bottomLeft = Camera.main.ViewportToWorldPoint(new Vector3(0, 0, 0));
@@ -44,14 +53,32 @@ public class PlayerShip : NetworkBehaviour
         pos.x = Mathf.Clamp(pos.x, bottomLeft.x + halfWidth, topRight.x - halfWidth);
         pos.y = Mathf.Clamp(pos.y, bottomLeft.y + halfHeight, topRight.y - halfHeight);
         rb.position = pos;
-
-        
     }
-    void Shoot()
+
+    [ServerRpc]
+    void ShootServerRpc(Vector2 spawnPos)
     {
-        Vector3 spawnPos = rb.position;
-        GameObject bullet = Instantiate(bulletPrefab, spawnPos, Quaternion.identity);
-        Physics2D.IgnoreCollision(bullet.GetComponent<Collider2D>(), GetComponent<Collider2D>());
-        fireCooldown = 1f / fireRate;
+        if (bulletPrefab == null) return;
+
+        // Спавним пулю чуть ВЫШЕ корабля, чтобы она не появлялась прямо внутри него
+        Vector2 finalSpawnPos = spawnPos + new Vector2(0, halfHeight + 0.2f);
+        GameObject bullet = Instantiate(bulletPrefab, finalSpawnPos, Quaternion.identity);
+        
+        Collider2D bulletCollider = bullet.GetComponent<Collider2D>();
+        Collider2D shipCollider = GetComponent<Collider2D>();
+        if (bulletCollider != null && shipCollider != null)
+        {
+            Physics2D.IgnoreCollision(bulletCollider, shipCollider);
+        }
+
+        NetworkObject netObj = bullet.GetComponent<NetworkObject>();
+        if (netObj != null)
+        {
+            netObj.Spawn();
+        }
+        else
+        {
+            Debug.LogError("На префабе пули нет компонента NetworkObject!");
+        }
     }
 }
