@@ -10,6 +10,7 @@ public class PlayerShip : NetworkBehaviour
     private Rigidbody2D rb;
     private float halfWidth;
     private float halfHeight;
+    public Transform bulletSpawnPoint;
 
     void Start()
     {
@@ -25,7 +26,7 @@ public class PlayerShip : NetworkBehaviour
         float x = Input.GetAxis("Horizontal");
         float y = Input.GetAxis("Vertical");
 
-        rb.linearVelocity = new Vector2(x, y) * moveSpeed;
+        rb.linearVelocity = new Vector2(x, 0) * moveSpeed;
         fireCooldown -= Time.deltaTime;
         if (fireCooldown <= 0f)
         {
@@ -49,9 +50,9 @@ public class PlayerShip : NetworkBehaviour
     }
     void Shoot()
     {
-        Vector3 spawnPos = rb.position;
-        GameObject bullet = Instantiate(bulletPrefab, spawnPos, Quaternion.identity);
-        Physics2D.IgnoreCollision(bullet.GetComponent<Collider2D>(), GetComponent<Collider2D>());
-        fireCooldown = 1f / fireRate;
+    Vector3 spawnPos = bulletSpawnPoint != null ? bulletSpawnPoint.position : transform.position;
+    GameObject bullet = Instantiate(bulletPrefab, spawnPos, Quaternion.identity);
+    Physics2D.IgnoreCollision(bullet.GetComponent<Collider2D>(), GetComponent<Collider2D>());
+    fireCooldown = 1f / fireRate;
     }
 }
