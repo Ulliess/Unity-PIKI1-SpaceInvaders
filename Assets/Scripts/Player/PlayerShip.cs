@@ -5,11 +5,33 @@ public class PlayerShip : NetworkBehaviour
 {
     public GameObject bulletPrefab;
     public float fireRate = 0.5f;
-    private float fireCooldown = 0f;
+    private double nextFireTime = 0;
     public float moveSpeed = 5f;
     private Rigidbody2D rb;
     private float halfWidth;
     private float halfHeight;
+
+    public override void OnNetworkSpawn()
+    {
+        base.OnNetworkSpawn();
+        if (IsOwner)
+        {
+            // Жёстко ставим позицию при спавне, чтобы клиент не успел 
+            // "отклемпиться" от (0,0,0) до верха разрешённой зоны (-2.2)
+            Vector3 startPos = IsServer ? new Vector3(-3f, -3f, 0f) : new Vector3(3f, -3f, 0f);
+            transform.position = startPos;
+            
+            var rBody = GetComponent<Rigidbody2D>();
+            if (rBody != null) rBody.position = startPos;
+        }
+
+        if (IsServer)
+        {
+            // Синхронизируем первый выстрел по глобальному времени сервера (сетка интервалов)
+            double interval = 1.0 / fireRate;
+            nextFireTime = System.Math.Ceiling(NetworkManager.Singleton.ServerTime.Time / interval) * interval;
+        }
+    }
 
     void Start()
     {
@@ -24,27 +46,38 @@ public class PlayerShip : NetworkBehaviour
 
     void Update()
     {
-        if (!IsOwner) return;
-
-        float x = Input.GetAxis("Horizontal");
-        float y = Input.GetAxis("Vertical");
-
-        if (rb != null)
+        if (IsOwner)
         {
-            rb.linearVelocity = new Vector2(x, y) * moveSpeed;
+            float x = Input.GetAxis("Horizontal");
+            float y = Input.GetAxis("Vertical");
+
+            if (rb != null)
+            {
+                rb.linearVelocity = new Vector2(x, y) * moveSpeed;
+            }
         }
 
-        fireCooldown -= Time.deltaTime;
-        if (fireCooldown <= 0f)
+        // Авто-стрельбу обрабатывает ТОЛЬКО сервер, чтобы не было задержек пинга (ServerRpc)
+        if (IsServer)
         {
-            ShootServerRpc(rb != null ? (Vector2)rb.position : (Vector2)transform.position);
-            fireCooldown = 1f / fireRate;
+            if (NetworkManager.Singleton.ServerTime.Time >= nextFireTime)
+            {
+                Shoot(rb != null ? (Vector2)rb.position : (Vector2)transform.position);
+                nextFireTime += 1.0 / fireRate;
+            }
         }
     }
+
+    private int framesAlive = 0;
 
     void FixedUpdate()
     {
         if (!IsOwner || rb == null) return;
+
+        // Ждём несколько кадров, чтобы NetworkTransform успел применить
+        // правильную позицию от сервера и не было ложного клемпинга от (0,0,0)
+        framesAlive++;
+        if (framesAlive < 10) return;
 
         Vector2 pos = rb.position;
         Vector3 bottomLeft = Camera.main.ViewportToWorldPoint(new Vector3(0, 0, 0));
@@ -55,8 +88,7 @@ public class PlayerShip : NetworkBehaviour
         rb.position = pos;
     }
 
-    [ServerRpc]
-    void ShootServerRpc(Vector2 spawnPos)
+    void Shoot(Vector2 spawnPos)
     {
         if (bulletPrefab == null) return;
 
