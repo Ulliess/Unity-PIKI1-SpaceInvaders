@@ -48,22 +48,44 @@ public class PlayerShip : NetworkBehaviour
     {
         if (IsOwner)
         {
-            float x = Input.GetAxis("Horizontal");
-            float y = Input.GetAxis("Vertical");
-
-            if (rb != null)
+            // Блокируем управление, если игра на паузе (глобальной или локальной)
+            if (GameManager.Instance != null && 
+               (GameManager.Instance.IsGlobalPaused.Value || GameManager.Instance.IsLocalMenuOpen))
             {
-                rb.linearVelocity = new Vector2(x, y) * moveSpeed;
+                if (rb != null) rb.linearVelocity = Vector2.zero;
+            }
+            else
+            {
+                float x = Input.GetAxis("Horizontal");
+                float y = Input.GetAxis("Vertical");
+
+                if (rb != null)
+                {
+                    rb.linearVelocity = new Vector2(x, y) * moveSpeed;
+                }
             }
         }
 
-        // Авто-стрельбу обрабатывает ТОЛЬКО сервер, чтобы не было задержек пинга (ServerRpc)
+        // Авто-стрельбу обрабатывает ТОЛЬКО сервер, чтобы не было задержек пинга
         if (IsServer)
         {
-            if (NetworkManager.Singleton.ServerTime.Time >= nextFireTime)
+            // Если игра на глобальной паузе
+            if (GameManager.Instance != null && GameManager.Instance.IsGlobalPaused.Value)
             {
-                Shoot(rb != null ? (Vector2)rb.position : (Vector2)transform.position);
-                nextFireTime += 1.0 / fireRate;
+                // Прокручиваем таймер вхолостую, чтобы пули не накапливались в "долг"
+                if (NetworkManager.Singleton.ServerTime.Time >= nextFireTime)
+                {
+                    nextFireTime += 1.0 / fireRate;
+                }
+            }
+            else
+            {
+                // Обычная стрельба
+                if (NetworkManager.Singleton.ServerTime.Time >= nextFireTime)
+                {
+                    Shoot(rb != null ? (Vector2)rb.position : (Vector2)transform.position);
+                    nextFireTime += 1.0 / fireRate;
+                }
             }
         }
     }
