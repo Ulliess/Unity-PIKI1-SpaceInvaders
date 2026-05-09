@@ -32,6 +32,12 @@ public class MainMenuManager : MonoBehaviour
         // Показываем только главную панель
         ShowPanel(mainPanel);
 
+        // Привязываем кнопки ДО любых асинхронных сетевых операций, 
+        // чтобы они точно работали даже если сеть долго грузится
+        createLobbyButton.onClick.AddListener(OnCreateClicked);
+        joinLobbyButton.onClick.AddListener(OnJoinClicked);
+        connectButton.onClick.AddListener(OnConnectClicked);
+
         // Инициализируем Unity Services
         await LobbyManager.Instance.InitializeAsync();
 
@@ -39,11 +45,6 @@ public class MainMenuManager : MonoBehaviour
         LobbyManager.Instance.OnLobbyCreated += OnLobbyCreated;
         LobbyManager.Instance.OnJoinedLobby += OnJoinedLobby;
         LobbyManager.Instance.OnError += OnError;
-
-        // Привязываем кнопки
-        createLobbyButton.onClick.AddListener(OnCreateClicked);
-        joinLobbyButton.onClick.AddListener(OnJoinClicked);
-        connectButton.onClick.AddListener(OnConnectClicked);
     }
 
     // --- Кнопки ---
