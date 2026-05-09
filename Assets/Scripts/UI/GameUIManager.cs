@@ -119,7 +119,7 @@ public class GameUIManager : MonoBehaviour
         {
             GameManager.Instance.DisconnectAndLeave();
         }
-    }
+    } 
 
     private void OnDestroy()
     {
