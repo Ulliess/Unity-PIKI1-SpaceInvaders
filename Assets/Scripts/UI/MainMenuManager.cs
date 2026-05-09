@@ -17,15 +17,19 @@ public class MainMenuManager : MonoBehaviour
     [Header("Main Panel")]
     public Button createLobbyButton;
     public Button joinLobbyButton;
+    public Button quitButton; // Кнопка выхода из игры
 
     [Header("Host Panel")]
     public TMP_Text lobbyCodeDisplay;
     public TMP_Text hostStatusText;
+    public Button copyCodeButton; // Кнопка копирования кода
+    public Button hostBackButton; // Кнопка Назад (Отмена создания)
 
     [Header("Join Panel")]
     public TMP_InputField lobbyCodeInput;
     public Button connectButton;
     public TMP_Text joinStatusText;
+    public Button joinBackButton; // Кнопка Назад (Отмена подключения)
 
     private async void Start()
     {
@@ -37,6 +41,24 @@ public class MainMenuManager : MonoBehaviour
         createLobbyButton.onClick.AddListener(OnCreateClicked);
         joinLobbyButton.onClick.AddListener(OnJoinClicked);
         connectButton.onClick.AddListener(OnConnectClicked);
+
+        if (quitButton != null)
+            quitButton.onClick.AddListener(OnQuitClicked);
+
+        if (copyCodeButton != null)
+            copyCodeButton.onClick.AddListener(OnCopyCodeClicked);
+
+        if (hostBackButton != null)
+            hostBackButton.onClick.AddListener(OnHostBackClicked);
+
+        if (joinBackButton != null)
+            joinBackButton.onClick.AddListener(OnJoinBackClicked);
+
+        // Фильтр для InputField (только латиница и цифры, принудительно заглавные)
+        if (lobbyCodeInput != null)
+        {
+            lobbyCodeInput.onValidateInput += ValidateLobbyCodeInput;
+        }
 
         // Инициализируем Unity Services
         await LobbyManager.Instance.InitializeAsync();
@@ -53,7 +75,34 @@ public class MainMenuManager : MonoBehaviour
     {
         ShowPanel(hostPanel);
         hostStatusText.text = "Создаю лобби...";
+        
+        if (lobbyCodeDisplay != null)
+            lobbyCodeDisplay.text = ""; // Очищаем старый код перед созданием нового
+            
+        if (copyCodeButton != null)
+            copyCodeButton.gameObject.SetActive(false); // Прячем кнопку копирования, пока код не появится
+            
+        if (hostBackButton != null)
+            hostBackButton.gameObject.SetActive(false); // Прячем кнопку Назад (чтобы не сломать асинхронную логику и для эстетики)
+
         await LobbyManager.Instance.CreateLobby();
+    }
+
+    private void OnCopyCodeClicked()
+    {
+        if (lobbyCodeDisplay != null && !string.IsNullOrEmpty(lobbyCodeDisplay.text))
+        {
+            GUIUtility.systemCopyBuffer = lobbyCodeDisplay.text;
+            hostStatusText.text = "Код скопирован!";
+        }
+    }
+
+    private void OnQuitClicked()
+    {
+        Application.Quit();
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#endif
     }
 
     private void OnJoinClicked()
@@ -77,12 +126,34 @@ public class MainMenuManager : MonoBehaviour
         await LobbyManager.Instance.JoinLobby(code);
     }
 
+    private async void OnHostBackClicked()
+    {
+        hostStatusText.text = "Отменяю...";
+        if (copyCodeButton != null) copyCodeButton.gameObject.SetActive(false);
+        await LobbyManager.Instance.LeaveLobby(); // Удаляем лобби из сервисов
+        ShowPanel(mainPanel);
+    }
+
+    private async void OnJoinBackClicked()
+    {
+        joinStatusText.text = "Отменяю...";
+        connectButton.interactable = true; // Разблокируем кнопку, если она зависла
+        await LobbyManager.Instance.LeaveLobby(); // Разрываем сеть, если успели подключиться
+        ShowPanel(mainPanel);
+    }
+
     // --- События от LobbyManager ---
 
     private void OnLobbyCreated(string lobbyCode)
     {
         lobbyCodeDisplay.text = lobbyCode;
         hostStatusText.text = "Ожидание второго игрока...";
+        
+        if (copyCodeButton != null)
+            copyCodeButton.gameObject.SetActive(true); // Показываем кнопку, когда код появился
+
+        if (hostBackButton != null)
+            hostBackButton.gameObject.SetActive(true); // Показываем кнопку Назад
     }
 
     private void OnJoinedLobby()
@@ -97,12 +168,28 @@ public class MainMenuManager : MonoBehaviour
         if (hostPanel.activeSelf)
         {
             hostStatusText.text = error;
+            if (hostBackButton != null) 
+                hostBackButton.gameObject.SetActive(true); // Если ошибка, разрешаем вернуться
         }
         else if (joinPanel.activeSelf)
         {
             joinStatusText.text = error;
             connectButton.interactable = true;
         }
+    }
+
+    // --- Валидация инпута ---
+    private char ValidateLobbyCodeInput(string text, int charIndex, char addedChar)
+    {
+        // Relay код может содержать и английские буквы, и цифры.
+        // Оставляем только A-Z, a-z и 0-9, остальное блокируем ('\0').
+        if ((addedChar >= 'A' && addedChar <= 'Z') || 
+            (addedChar >= 'a' && addedChar <= 'z') || 
+            (addedChar >= '0' && addedChar <= '9'))
+        {
+            return char.ToUpper(addedChar); // Принудительно делаем заглавной
+        }
+        return '\0';
     }
 
     // --- Helpers ---
