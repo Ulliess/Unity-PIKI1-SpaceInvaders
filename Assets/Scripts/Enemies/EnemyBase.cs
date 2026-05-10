@@ -54,6 +54,12 @@ public class EnemyBase : NetworkBehaviour
     {
         SpawnExplosionClientRpc(transform.position);
         GetComponent<NetworkObject>().Despawn();
+        
+        // Если враг долетел до низа — команда проигрывает!
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.TriggerGameOver(false); // false = поражение
+        }
     }
 
     [ClientRpc]
