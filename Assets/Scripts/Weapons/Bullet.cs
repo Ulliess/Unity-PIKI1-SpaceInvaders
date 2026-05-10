@@ -19,6 +19,8 @@ public class Bullet : MonoBehaviour
     {
         if (other.CompareTag("Enemy"))
         {
+            EnemyBase enemy = other.GetComponent<EnemyBase>();
+        
             if (aoeRadius > 0f)
             {
                 Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, aoeRadius);
@@ -26,10 +28,18 @@ public class Bullet : MonoBehaviour
                 {
                     if (hit.CompareTag("Enemy"))
                     {
-                        Debug.Log("AoE попал в: " + hit.name);
+                        EnemyBase hitEnemy = hit.GetComponent<EnemyBase>();
+                        if (hitEnemy != null)
+                        hitEnemy.TakeDamage(damage);
                     }
                 }
             }
+            else
+            {
+                if (enemy != null)
+                    enemy.TakeDamage(damage);
+            }
+        
             Destroy(gameObject);
         }
     }
