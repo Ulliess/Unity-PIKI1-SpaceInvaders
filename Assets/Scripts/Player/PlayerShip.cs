@@ -116,23 +116,50 @@ public class PlayerShip : NetworkBehaviour
 
         // Спавним пулю чуть ВЫШЕ корабля, чтобы она не появлялась прямо внутри него
         Vector2 finalSpawnPos = spawnPos + new Vector2(0, halfHeight + 0.2f);
-        GameObject bullet = Instantiate(bulletPrefab, finalSpawnPos, Quaternion.identity);
-        
-        Collider2D bulletCollider = bullet.GetComponent<Collider2D>();
-        Collider2D shipCollider = GetComponent<Collider2D>();
-        if (bulletCollider != null && shipCollider != null)
-        {
-            Physics2D.IgnoreCollision(bulletCollider, shipCollider);
-        }
 
-        NetworkObject netObj = bullet.GetComponent<NetworkObject>();
-        if (netObj != null)
+        // Сервер спавнит ЛОКАЛЬНУЮ пулю с коллизиями (для обнаружения попаданий)
+        SpawnLocalBullet(finalSpawnPos, withCollision: true);
+
+        // Говорим клиентам создать визуальную пулю (без сетевого объекта!)
+        SpawnBulletClientRpc(finalSpawnPos);
+    }
+
+    /// <summary>
+    /// Создаёт локальную пулю. withCollision=true для сервера (физика),
+    /// false для клиентов (только визуал).
+    /// </summary>
+    private void SpawnLocalBullet(Vector2 pos, bool withCollision)
+    {
+        GameObject bullet = Instantiate(bulletPrefab, pos, Quaternion.identity);
+
+        if (withCollision)
         {
-            netObj.Spawn();
+            // Игнорируем столкновение пули с кораблём, который её выпустил
+            Collider2D bulletCollider = bullet.GetComponent<Collider2D>();
+            Collider2D shipCollider = GetComponent<Collider2D>();
+            if (bulletCollider != null && shipCollider != null)
+            {
+                Physics2D.IgnoreCollision(bulletCollider, shipCollider);
+            }
         }
         else
         {
-            Debug.LogError("На префабе пули нет компонента NetworkObject!");
+            // Клиентские пули — чисто визуальные, коллайдер не нужен
+            Collider2D col = bullet.GetComponent<Collider2D>();
+            if (col != null) col.enabled = false;
         }
+    }
+
+    /// <summary>
+    /// Сервер → все клиенты: "создайте пулю вот тут".
+    /// Пуля летит детерминированно (строго вверх), синхронизация позиции не нужна.
+    /// </summary>
+    [ClientRpc]
+    private void SpawnBulletClientRpc(Vector2 pos)
+    {
+        // Хост уже создал пулю в Shoot(), не дублируем
+        if (IsServer) return;
+
+        SpawnLocalBullet(pos, withCollision: false);
     }
 }
