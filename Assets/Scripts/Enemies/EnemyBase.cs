@@ -8,49 +8,34 @@ public class EnemyBase : NetworkBehaviour
     public float moveSpeed = 2f;
 
     [Header("Explosion")]
-    public GameObject explosionPrefab;
-
-    private NetworkVariable<float> currentHealth = new NetworkVariable<float>(
-        0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server
-    );
-
-    private float bottomThresholdY;
-    private bool isDead = false;
-
-    public NetworkVariable<float> CurrentHealth => currentHealth;
-    public float MaxHealth => maxHealth;
+    public GameObject explosionPrefab; // заготовка под взрыв
+    private NetworkVariable<float> currentHealth = new NetworkVariable<float>();
+    private float bottomThresholdY; // Y-координата нижней трети экрана
 
     public override void OnNetworkSpawn()
     {
         if (IsServer)
         {
             currentHealth.Value = maxHealth;
-        }
-        if (Camera.main != null)
-        {
             float camHeight = Camera.main.orthographicSize;
-            bottomThresholdY = -camHeight * (1f / 3f);
+            bottomThresholdY = -camHeight + (camHeight * 2f / 3f);
+            bottomThresholdY = -camHeight * (1f / 3f); 
         }
     }
 
     void Update()
     {
         if (!IsServer) return;
-        if (isDead) return;
-
         transform.position += Vector3.down * moveSpeed * Time.deltaTime;
-
         if (transform.position.y <= bottomThresholdY)
         {
-            TriggerExplosion();
+            ExplodeServerRpc();
         }
     }
 
     public void TakeDamage(float damage)
     {
         if (!IsServer) return;
-        if (isDead) return;
-
         currentHealth.Value -= damage;
         if (currentHealth.Value <= 0)
         {
@@ -58,16 +43,15 @@ public class EnemyBase : NetworkBehaviour
         }
     }
 
-    void TriggerExplosion()
+    void Die()
     {
-        isDead = true;
         SpawnExplosionClientRpc(transform.position);
         GetComponent<NetworkObject>().Despawn();
     }
 
-    void Die()
+    [ServerRpc]
+    void ExplodeServerRpc()
     {
-        isDead = true;
         SpawnExplosionClientRpc(transform.position);
         GetComponent<NetworkObject>().Despawn();
         
@@ -83,7 +67,7 @@ public class EnemyBase : NetworkBehaviour
     {
         if (explosionPrefab != null)
             Instantiate(explosionPrefab, pos, Quaternion.identity);
-
+        // Заготовка для создания эффекта взрыва. В реальной игре здесь будет анимация, звук и т.д.
         Debug.Log($"Explosion at {pos}");
     }
 }

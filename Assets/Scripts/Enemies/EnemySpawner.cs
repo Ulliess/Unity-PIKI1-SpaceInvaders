@@ -6,18 +6,10 @@ public class EnemySpawner : NetworkBehaviour
     [Header("Spawning")]
     public GameObject enemyPrefab;
     public float spawnInterval = 2f;
-    public float spawnXRange = 4f;
+    public float spawnY = 5f; 
+    public float spawnXRange = 4f; 
 
     private float timer;
-    private float spawnY;
-
-    public override void OnNetworkSpawn()
-    {
-        if (IsServer && Camera.main != null)
-        {
-            spawnY = Camera.main.orthographicSize + 1f;
-        }
-    }
 
     void Update()
     {
@@ -33,8 +25,6 @@ public class EnemySpawner : NetworkBehaviour
 
     void SpawnEnemy()
     {
-        if (enemyPrefab == null) return;
-
         float x = Random.Range(-spawnXRange, spawnXRange);
         Vector3 pos = new Vector3(x, spawnY, 0);
 
