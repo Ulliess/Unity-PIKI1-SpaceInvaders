@@ -1,5 +1,6 @@
 using UnityEngine;
 using Unity.Netcode;
+using UnityEngine.InputSystem;
 
 public class PlayerShip : NetworkBehaviour
 {
@@ -10,9 +11,12 @@ public class PlayerShip : NetworkBehaviour
     private Rigidbody2D rb;
     private float halfWidth;
     private float halfHeight;
+    public float maxHP = 100f;
+    private float currentHP;
 
     void Start()
     {
+        currentHP = maxHP;
         rb = GetComponent<Rigidbody2D>();
         var spriteRenderer = GetComponent<SpriteRenderer>();
         if (spriteRenderer != null)
@@ -26,8 +30,12 @@ public class PlayerShip : NetworkBehaviour
     {
         if (!IsOwner) return;
 
-        float x = Input.GetAxis("Horizontal");
-        float y = Input.GetAxis("Vertical");
+        float x = Keyboard.current != null ? 
+            (Keyboard.current.dKey.isPressed || Keyboard.current.rightArrowKey.isPressed ? 1f : 
+            Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed ? -1f : 0f) : 0f;
+        float y = Keyboard.current != null ? 
+            (Keyboard.current.wKey.isPressed || Keyboard.current.upArrowKey.isPressed ? 1f : 
+            Keyboard.current.sKey.isPressed || Keyboard.current.downArrowKey.isPressed ? -1f : 0f) : 0f;
 
         if (rb != null)
         {
@@ -60,7 +68,6 @@ public class PlayerShip : NetworkBehaviour
     {
         if (bulletPrefab == null) return;
 
-        // Спавним пулю чуть ВЫШЕ корабля, чтобы она не появлялась прямо внутри него
         Vector2 finalSpawnPos = spawnPos + new Vector2(0, halfHeight + 0.2f);
         GameObject bullet = Instantiate(bulletPrefab, finalSpawnPos, Quaternion.identity);
         
@@ -79,6 +86,26 @@ public class PlayerShip : NetworkBehaviour
         else
         {
             Debug.LogError("На префабе пули нет компонента NetworkObject!");
+        }
+    }
+    void OnCollisionEnter2D(Collision2D collision)
+    {   
+        if (collision.gameObject.tag == "Enemy")
+        {
+            TakeDamage(25f);
+        }
+    }
+
+    void TakeDamage(float damage)
+    {
+        if (!IsServer) return;
+        
+        currentHP -= damage;
+        Debug.Log("HP: " + currentHP);
+        
+        if (currentHP <= 0)
+        {
+            Debug.Log("Корабль уничтожен!");
         }
     }
 }
