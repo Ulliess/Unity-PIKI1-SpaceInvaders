@@ -1,10 +1,8 @@
 using UnityEngine;
-using Unity.Netcode;
 
 public class EnemyHealthBar : MonoBehaviour
 {
-    public EnemyBase enemy;
-
+    private EnemyBase enemy;
     private SpriteRenderer barRenderer;
     private float originalScaleX;
 
@@ -12,14 +10,27 @@ public class EnemyHealthBar : MonoBehaviour
     {
         barRenderer = GetComponent<SpriteRenderer>();
         originalScaleX = transform.localScale.x;
+
+        enemy = GetComponentInParent<EnemyBase>();
+
+        if (enemy != null)
+        {
+            enemy.CurrentHealth.OnValueChanged += OnHealthChanged;
+        }
     }
 
-    void Update()
+    void OnDestroy()
     {
-        // Здесь просто заготовка
+        if (enemy != null)
+            enemy.CurrentHealth.OnValueChanged -= OnHealthChanged;
     }
 
-    public void UpdateBar(float currentHP, float maxHP)
+    void OnHealthChanged(float oldValue, float newValue)
+    {
+        UpdateBar(newValue, enemy.MaxHealth);
+    }
+
+    void UpdateBar(float currentHP, float maxHP)
     {
         float ratio = Mathf.Clamp01(currentHP / maxHP);
         Vector3 scale = transform.localScale;
