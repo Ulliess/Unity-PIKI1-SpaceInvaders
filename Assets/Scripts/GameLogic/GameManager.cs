@@ -13,6 +13,7 @@ public class GameManager : NetworkBehaviour
     public event Action<bool> OnGlobalPauseChanged;
     public event Action<bool> OnLocalPauseMenuToggled;
     public event Action<string, bool> OnPlayerLeft; // <сообщение, можно_ли_продолжить>
+    public event Action<bool> OnGameOver; // true = победа, false = поражение
 
     public bool IsLocalMenuOpen { get; private set; }
 
@@ -110,6 +111,21 @@ public class GameManager : NetworkBehaviour
         Time.timeScale = 1f; // Обязательно возвращаем время в норму перед выходом
         NetworkManager.Singleton.Shutdown();
         UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
+    }
+
+    public void TriggerGameOver(bool isWin)
+    {
+        if (IsServer)
+        {
+            TriggerGameOverClientRpc(isWin);
+        }
+    }
+
+    [ClientRpc]
+    private void TriggerGameOverClientRpc(bool isWin)
+    {
+        Time.timeScale = 0f; // Останавливаем игру
+        OnGameOver?.Invoke(isWin);
     }
 
     public override void OnDestroy()

@@ -5,19 +5,25 @@ public class GameUIManager : MonoBehaviour
 {
     [Header("Panels")]
     public GameObject pausePanel; // Панель паузы
+    public GameObject endGamePanel; // Панель конца игры
 
     [Header("Buttons")]
     public Button resumeButton;
     public Button leaveButton;
+    public Button endGameLeaveButton;
 
     [Header("Text")]
     public TMPro.TMP_Text statusText;
+    public TMPro.TMP_Text endGameResultText; // "ПОБЕДА" или "ПОРАЖЕНИЕ"
 
     private void Start()
     {
         // Прячем панель на старте
         if (pausePanel != null)
             pausePanel.SetActive(false);
+            
+        if (endGamePanel != null)
+            endGamePanel.SetActive(false);
 
         // Привязываем кнопки
         if (resumeButton != null)
@@ -25,6 +31,9 @@ public class GameUIManager : MonoBehaviour
 
         if (leaveButton != null)
             leaveButton.onClick.AddListener(OnLeaveClicked);
+            
+        if (endGameLeaveButton != null)
+            endGameLeaveButton.onClick.AddListener(OnLeaveClicked);
 
         // Ждём инициализации GameManager
         Invoke(nameof(SubscribeToGameManager), 0.5f);
@@ -37,6 +46,7 @@ public class GameUIManager : MonoBehaviour
             GameManager.Instance.OnGlobalPauseChanged += UpdatePauseUI;
             GameManager.Instance.OnLocalPauseMenuToggled += UpdatePauseUI;
             GameManager.Instance.OnPlayerLeft += ShowPlayerLeftUI;
+            GameManager.Instance.OnGameOver += ShowGameOverUI;
         }
     }
 
@@ -55,6 +65,21 @@ public class GameUIManager : MonoBehaviour
             {
                 resumeButton.gameObject.SetActive(canResume);
             }
+        }
+    }
+
+    private void ShowGameOverUI(bool isWin)
+    {
+        // Если открыта пауза - прячем её, чтобы не перекрывала
+        if (pausePanel != null) pausePanel.SetActive(false);
+
+        if (endGamePanel != null)
+            endGamePanel.SetActive(true);
+
+        if (endGameResultText != null)
+        {
+            endGameResultText.text = isWin ? "ПОБЕДА!" : "ПОРАЖЕНИЕ";
+            endGameResultText.color = isWin ? Color.green : Color.red;
         }
     }
 
@@ -119,7 +144,7 @@ public class GameUIManager : MonoBehaviour
         {
             GameManager.Instance.DisconnectAndLeave();
         }
-    } 
+    }
 
     private void OnDestroy()
     {
@@ -128,6 +153,7 @@ public class GameUIManager : MonoBehaviour
             GameManager.Instance.OnGlobalPauseChanged -= UpdatePauseUI;
             GameManager.Instance.OnLocalPauseMenuToggled -= UpdatePauseUI;
             GameManager.Instance.OnPlayerLeft -= ShowPlayerLeftUI;
+            GameManager.Instance.OnGameOver -= ShowGameOverUI;
         }
     }
 }
