@@ -16,7 +16,7 @@ GameObject:
   - component: {fileID: 1063881720920861114}
   m_Layer: 0
   m_Name: PlayerShipCircle
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -196,6 +196,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerShip
   ShowTopMostFoldoutHeaderGroup: 1
+  maxHealth: 100
   bulletPrefab: {fileID: 3594930185995235836, guid: 9a102f6eabada46d8a55935a554f5ad2, type: 3}
   fireRate: 0.5
   moveSpeed: 5

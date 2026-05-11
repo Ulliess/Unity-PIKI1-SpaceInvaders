@@ -18,7 +18,7 @@ GameObject:
   - component: {fileID: 9139981119730759938}
   m_Layer: 0
   m_Name: PlayerShipRect
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -208,6 +208,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerShip
   ShowTopMostFoldoutHeaderGroup: 1
+  maxHealth: 100
   bulletPrefab: {fileID: 4730091803151942297, guid: 404fa062389ad4d0e9de11c6a61b1e61, type: 3}
   fireRate: 0.5
   moveSpeed: 5
