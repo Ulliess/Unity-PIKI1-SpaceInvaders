@@ -4,7 +4,7 @@ public class Bullet : MonoBehaviour
 {
     public float speed = 10f;
     public float damage = 1f;
-
+    public float aoeRadius = 0f; // 0 = обычная пуля, >0 = AoE-урон в радиусе
 
     void Update()
     {
@@ -13,5 +13,38 @@ public class Bullet : MonoBehaviour
         {
             Destroy(gameObject);
         }
+    }
+
+    /// <summary>
+    /// Столкновение пули с врагом.
+    /// Обрабатывается ТОЛЬКО на сервере (на клиенте у пули отключен коллайдер).
+    /// </summary>
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        if (!other.CompareTag("Enemy")) return;
+
+        if (aoeRadius > 0f)
+        {
+            // AoE-урон: бьём всех врагов в радиусе
+            Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, aoeRadius);
+            foreach (Collider2D hit in hits)
+            {
+                if (hit.CompareTag("Enemy"))
+                {
+                    EnemyBase hitEnemy = hit.GetComponent<EnemyBase>();
+                    if (hitEnemy != null)
+                        hitEnemy.TakeDamage(damage);
+                }
+            }
+        }
+        else
+        {
+            // Обычный урон: бьём только того, в кого попали
+            EnemyBase enemy = other.GetComponent<EnemyBase>();
+            if (enemy != null)
+                enemy.TakeDamage(damage);
+        }
+
+        Destroy(gameObject);
     }
 }

@@ -1,73 +1,139 @@
 using UnityEngine;
 using Unity.Netcode;
+using System;
 
 public class EnemyBase : NetworkBehaviour
 {
     [Header("Stats")]
     public float maxHealth = 100f;
     public float moveSpeed = 2f;
+    public float collisionDamage = 25f; // урон кораблю при столкновении
 
     [Header("Explosion")]
-    public GameObject explosionPrefab; // заготовка под взрыв
-    private NetworkVariable<float> currentHealth = new NetworkVariable<float>();
-    private float bottomThresholdY; // Y-координата нижней трети экрана
+    public GameObject explosionPrefab;
+
+    // Читать могут все клиенты, писать — только сервер
+    protected NetworkVariable<float> currentHealth = new NetworkVariable<float>(
+        0f,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    protected float bottomThresholdY;
+
+    public event Action<float, float> OnHealthChanged; // (currentHP, maxHP)
+
 
     public override void OnNetworkSpawn()
     {
         if (IsServer)
         {
             currentHealth.Value = maxHealth;
-            float camHeight = Camera.main.orthographicSize;
-            bottomThresholdY = -camHeight + (camHeight * 2f / 3f);
-            bottomThresholdY = -camHeight * (1f / 3f); 
+            CalculateBottomThreshold();
         }
+
+        // Все клиенты подписываются, чтобы обновлять полоску HP локально
+        currentHealth.OnValueChanged += HandleHealthChanged;
     }
 
-    void Update()
+    public override void OnNetworkDespawn()
+    {
+        currentHealth.OnValueChanged -= HandleHealthChanged;
+    }
+
+    private void HandleHealthChanged(float oldVal, float newVal)
+    {
+        OnHealthChanged?.Invoke(newVal, maxHealth);
+    }
+
+  
+    protected virtual void Update()
     {
         if (!IsServer) return;
+
+        MoveDown();
+        CheckBoundary();
+    }
+
+  
+    protected virtual void MoveDown()
+    {
         transform.position += Vector3.down * moveSpeed * Time.deltaTime;
-        if (transform.position.y <= bottomThresholdY)
-        {
-            ExplodeServerRpc();
-        }
     }
 
-    public void TakeDamage(float damage)
+    protected virtual void CheckBoundary()
+    {
+        if (transform.position.y <= bottomThresholdY)
+            ReachBottom();
+    }
+
+  
+    public virtual void TakeDamage(float damage)
     {
         if (!IsServer) return;
+
         currentHealth.Value -= damage;
-        if (currentHealth.Value <= 0)
-        {
+        if (currentHealth.Value <= 0f)
             Die();
-        }
     }
 
-    void Die()
+    protected virtual void Die()
     {
         SpawnExplosionClientRpc(transform.position);
-        GetComponent<NetworkObject>().Despawn();
+
+        if (NetworkObject.IsSpawned)
+            NetworkObject.Despawn();
     }
 
-    [ServerRpc]
-    void ExplodeServerRpc()
+
+    protected virtual void ReachBottom()
     {
         SpawnExplosionClientRpc(transform.position);
-        GetComponent<NetworkObject>().Despawn();
-        
-        // Если враг долетел до низа — команда проигрывает!
+
         if (GameManager.Instance != null)
-        {
             GameManager.Instance.TriggerGameOver(false); // false = поражение
+
+        if (NetworkObject.IsSpawned)
+            NetworkObject.Despawn();
+    }
+
+
+    protected virtual void OnTriggerEnter2D(Collider2D other)
+    {
+        if (!IsServer) return;
+
+        // Проверяем тег — корабли игроков должны иметь тег "Player"
+        if (!other.CompareTag("Player")) return;
+
+        IDamageable damageable = other.GetComponent<IDamageable>();
+        if (damageable != null)
+            damageable.TakeDamage(collisionDamage);
+
+        Die();
+    }
+
+
+    protected virtual void CalculateBottomThreshold()
+    {
+        if (Camera.main == null)
+        {
+            Debug.LogWarning("[EnemyBase] Camera.main не найдена при расчёте bottomThresholdY");
+            bottomThresholdY = -3f; // fallback
+            return;
         }
+
+        float camHeight = Camera.main.orthographicSize;
+        bottomThresholdY = -camHeight / 3f;
     }
 
     [ClientRpc]
-    void SpawnExplosionClientRpc(Vector3 pos)
+    protected void SpawnExplosionClientRpc(Vector3 pos)
     {
         if (explosionPrefab != null)
             Instantiate(explosionPrefab, pos, Quaternion.identity);
-        // Заготовка для создания эффекта взрыва. В реальной игре здесь будет анимация, звук и т.д.
-        Debug.Log($"Explosion at {pos}");
     }
+
+    // Удобные геттеры для UI
+    public float GetCurrentHealth() => currentHealth.Value;
+    public float GetHealthRatio() => Mathf.Clamp01(currentHealth.Value / maxHealth);
 }

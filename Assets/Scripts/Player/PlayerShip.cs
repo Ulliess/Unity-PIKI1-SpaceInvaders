@@ -1,15 +1,38 @@
 using UnityEngine;
 using Unity.Netcode;
 
-public class PlayerShip : NetworkBehaviour
+public class PlayerShip : NetworkBehaviour, IDamageable
 {
+    [Header("Health")]
+    public float maxHealth = 100f;
+    private NetworkVariable<float> currentHealth = new NetworkVariable<float>(
+        0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+    [Header("Weapons")]
     public GameObject bulletPrefab;
     public float fireRate = 0.5f;
     private double nextFireTime = 0;
+
+    [Header("Movement")]
     public float moveSpeed = 5f;
     private Rigidbody2D rb;
     private float halfWidth;
     private float halfHeight;
+
+    /// <summary>
+    /// IDamageable — враги вызывают это при столкновении с кораблём.
+    /// Обрабатывается только на сервере.
+    /// </summary>
+    public void TakeDamage(float amount)
+    {
+        if (!IsServer) return;
+        currentHealth.Value -= amount;
+        if (currentHealth.Value <= 0f)
+        {
+            if (GameManager.Instance != null)
+                GameManager.Instance.TriggerGameOver(false);
+        }
+    }
 
     public override void OnNetworkSpawn()
     {
@@ -27,6 +50,8 @@ public class PlayerShip : NetworkBehaviour
 
         if (IsServer)
         {
+            currentHealth.Value = maxHealth;
+
             // Синхронизируем первый выстрел по глобальному времени сервера (сетка интервалов)
             double interval = 1.0 / fireRate;
             nextFireTime = System.Math.Ceiling(NetworkManager.Singleton.ServerTime.Time / interval) * interval;
@@ -114,25 +139,52 @@ public class PlayerShip : NetworkBehaviour
     {
         if (bulletPrefab == null) return;
 
-        // Спавним пулю чуть ВЫШЕ корабля, чтобы она не появлялась прямо внутри него
+        // Спавним пулю чуть ВЫШЕ корабля
         Vector2 finalSpawnPos = spawnPos + new Vector2(0, halfHeight + 0.2f);
-        GameObject bullet = Instantiate(bulletPrefab, finalSpawnPos, Quaternion.identity);
-        
-        Collider2D bulletCollider = bullet.GetComponent<Collider2D>();
-        Collider2D shipCollider = GetComponent<Collider2D>();
-        if (bulletCollider != null && shipCollider != null)
-        {
-            Physics2D.IgnoreCollision(bulletCollider, shipCollider);
-        }
 
-        NetworkObject netObj = bullet.GetComponent<NetworkObject>();
-        if (netObj != null)
+        // Сервер спавнит ЛОКАЛЬНУЮ пулю с коллизиями (для обнаружения попаданий)
+        SpawnLocalBullet(finalSpawnPos, withCollision: true);
+
+        // Говорим клиентам создать визуальную пулю (без сетевого объекта!)
+        SpawnBulletClientRpc(finalSpawnPos);
+    }
+
+    /// <summary>
+    /// Создаёт локальную пулю. withCollision=true для сервера (физика),
+    /// false для клиентов (только визуал).
+    /// </summary>
+    private void SpawnLocalBullet(Vector2 pos, bool withCollision)
+    {
+        GameObject bullet = Instantiate(bulletPrefab, pos, Quaternion.identity);
+
+        if (withCollision)
         {
-            netObj.Spawn();
+            // Игнорируем столкновение пули с кораблём, который её выпустил
+            Collider2D bulletCollider = bullet.GetComponent<Collider2D>();
+            Collider2D shipCollider = GetComponent<Collider2D>();
+            if (bulletCollider != null && shipCollider != null)
+            {
+                Physics2D.IgnoreCollision(bulletCollider, shipCollider);
+            }
         }
         else
         {
-            Debug.LogError("На префабе пули нет компонента NetworkObject!");
+            // Клиентские пули — чисто визуальные, коллайдер не нужен
+            Collider2D col = bullet.GetComponent<Collider2D>();
+            if (col != null) col.enabled = false;
         }
+    }
+
+    /// <summary>
+    /// Сервер → все клиенты: "создайте пулю вот тут".
+    /// Пуля летит детерминированно (строго вверх), синхронизация позиции не нужна.
+    /// </summary>
+    [ClientRpc]
+    private void SpawnBulletClientRpc(Vector2 pos)
+    {
+        // Хост уже создал пулю в Shoot(), не дублируем
+        if (IsServer) return;
+
+        SpawnLocalBullet(pos, withCollision: false);
     }
 }
