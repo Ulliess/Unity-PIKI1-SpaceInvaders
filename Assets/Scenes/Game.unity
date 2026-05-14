@@ -2006,6 +2006,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerSpawner
   ShowTopMostFoldoutHeaderGroup: 1
   playerPrefab: {fileID: 8674731190989274284, guid: 31c654ab623cc49b391d14c22f23af23, type: 3}
+  shipPrefabs:
+  - {fileID: 1082229077872638517, guid: 0bb7851e11e6d4f7db25c5a33a4d5050, type: 3}
+  - {fileID: 8674731190989274284, guid: 31c654ab623cc49b391d14c22f23af23, type: 3}
+  - {fileID: 1281380114935616214, guid: ed1e93ec540ba41ec8e5365edb86ed80, type: 3}
   hostSpawnPosition: {x: -3, y: -3, z: 0}
   clientSpawnPosition: {x: 3, y: -3, z: 0}
 --- !u!1660057539 &9223372036854775807
