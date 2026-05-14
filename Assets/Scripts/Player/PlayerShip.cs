@@ -19,10 +19,6 @@ public class PlayerShip : NetworkBehaviour, IDamageable
     private float halfWidth;
     private float halfHeight;
 
-    /// <summary>
-    /// IDamageable — враги вызывают это при столкновении с кораблём.
-    /// Обрабатывается только на сервере.
-    /// </summary>
     public void TakeDamage(float amount)
     {
         if (!IsServer) return;
@@ -39,22 +35,20 @@ public class PlayerShip : NetworkBehaviour, IDamageable
         base.OnNetworkSpawn();
         if (IsOwner)
         {
-            // Жёстко ставим позицию при спавне, чтобы клиент не успел 
-            // "отклемпиться" от (0,0,0) до верха разрешённой зоны (-2.2)
             Vector3 startPos = IsServer ? new Vector3(-3f, -3f, 0f) : new Vector3(3f, -3f, 0f);
             transform.position = startPos;
             
             var rBody = GetComponent<Rigidbody2D>();
             if (rBody != null) rBody.position = startPos;
+            
+            // Таймер стрельбы теперь крутится У ВЛАДЕЛЬЦА
+            double interval = 1.0 / fireRate;
+            nextFireTime = System.Math.Ceiling(NetworkManager.Singleton.LocalTime.Time / interval) * interval;
         }
 
         if (IsServer)
         {
             currentHealth.Value = maxHealth;
-
-            // Синхронизируем первый выстрел по глобальному времени сервера (сетка интервалов)
-            double interval = 1.0 / fireRate;
-            nextFireTime = System.Math.Ceiling(NetworkManager.Singleton.ServerTime.Time / interval) * interval;
         }
     }
 
@@ -73,11 +67,15 @@ public class PlayerShip : NetworkBehaviour, IDamageable
     {
         if (IsOwner)
         {
-            // Блокируем управление, если игра на паузе (глобальной или локальной)
             if (GameManager.Instance != null && 
                (GameManager.Instance.IsGlobalPaused.Value || GameManager.Instance.IsLocalMenuOpen))
             {
                 if (rb != null) rb.linearVelocity = Vector2.zero;
+                
+                if (NetworkManager.Singleton.LocalTime.Time >= nextFireTime)
+                {
+                    nextFireTime += 1.0 / fireRate;
+                }
             }
             else
             {
@@ -88,43 +86,28 @@ public class PlayerShip : NetworkBehaviour, IDamageable
                 {
                     rb.linearVelocity = new Vector2(x, y) * moveSpeed;
                 }
-            }
-        }
 
-        // Авто-стрельбу обрабатывает ТОЛЬКО сервер, чтобы не было задержек пинга
-        if (IsServer)
-        {
-            // Если игра на глобальной паузе
-            if (GameManager.Instance != null && GameManager.Instance.IsGlobalPaused.Value)
-            {
-                // Прокручиваем таймер вхолостую, чтобы пули не накапливались в "долг"
-                if (NetworkManager.Singleton.ServerTime.Time >= nextFireTime)
+                // Владелец стреляет визуально без задержек (Client-Side Prediction)
+                if (NetworkManager.Singleton.LocalTime.Time >= nextFireTime)
                 {
-                    nextFireTime += 1.0 / fireRate;
-                }
-            }
-            else
-            {
-                // Обычная стрельба
-                if (NetworkManager.Singleton.ServerTime.Time >= nextFireTime)
-                {
-                    Shoot(rb != null ? (Vector2)rb.position : (Vector2)transform.position);
+                    Vector2 spawnPos = rb != null ? (Vector2)rb.position : (Vector2)transform.position;
+                    Vector2 finalSpawnPos = spawnPos + new Vector2(0, halfHeight + 0.2f);
+                    
+                    // Рисуем пулю себе моментально
+                    SpawnLocalBullet(finalSpawnPos, false);
+                    
+                    // Отправляем на сервер свои координаты для просчёта урона
+                    ShootServerRpc(finalSpawnPos);
+                    
                     nextFireTime += 1.0 / fireRate;
                 }
             }
         }
     }
 
-    private int framesAlive = 0;
-
     void FixedUpdate()
     {
         if (!IsOwner || rb == null) return;
-
-        // Ждём несколько кадров, чтобы NetworkTransform успел применить
-        // правильную позицию от сервера и не было ложного клемпинга от (0,0,0)
-        framesAlive++;
-        if (framesAlive < 10) return;
 
         Vector2 pos = rb.position;
         Vector3 bottomLeft = Camera.main.ViewportToWorldPoint(new Vector3(0, 0, 0));
@@ -135,31 +118,33 @@ public class PlayerShip : NetworkBehaviour, IDamageable
         rb.position = pos;
     }
 
-    void Shoot(Vector2 spawnPos)
+    // Требуем, чтобы RPC вызывал только владелец
+    [ServerRpc]
+    private void ShootServerRpc(Vector2 pos)
     {
-        if (bulletPrefab == null) return;
-
-        // Спавним пулю чуть ВЫШЕ корабля
-        Vector2 finalSpawnPos = spawnPos + new Vector2(0, halfHeight + 0.2f);
-
-        // Сервер спавнит ЛОКАЛЬНУЮ пулю с коллизиями (для обнаружения попаданий)
-        SpawnLocalBullet(finalSpawnPos, withCollision: true);
-
-        // Говорим клиентам создать визуальную пулю (без сетевого объекта!)
-        SpawnBulletClientRpc(finalSpawnPos);
+        // Сервер спавнит физическую пулю ровно в координатах клиента
+        SpawnLocalBullet(pos, true);
+        
+        // Сервер просит остальных игроков нарисовать пулю
+        ShootClientRpc(pos);
     }
 
-    /// <summary>
-    /// Создаёт локальную пулю. withCollision=true для сервера (физика),
-    /// false для клиентов (только визуал).
-    /// </summary>
+    [ClientRpc]
+    private void ShootClientRpc(Vector2 pos)
+    {
+        // Владелец уже сам себе всё нарисовал
+        if (IsOwner) return;
+
+        SpawnLocalBullet(pos, false);
+    }
+
     private void SpawnLocalBullet(Vector2 pos, bool withCollision)
     {
+        if (bulletPrefab == null) return;
         GameObject bullet = Instantiate(bulletPrefab, pos, Quaternion.identity);
 
         if (withCollision)
         {
-            // Игнорируем столкновение пули с кораблём, который её выпустил
             Collider2D bulletCollider = bullet.GetComponent<Collider2D>();
             Collider2D shipCollider = GetComponent<Collider2D>();
             if (bulletCollider != null && shipCollider != null)
@@ -169,22 +154,8 @@ public class PlayerShip : NetworkBehaviour, IDamageable
         }
         else
         {
-            // Клиентские пули — чисто визуальные, коллайдер не нужен
             Collider2D col = bullet.GetComponent<Collider2D>();
             if (col != null) col.enabled = false;
         }
-    }
-
-    /// <summary>
-    /// Сервер → все клиенты: "создайте пулю вот тут".
-    /// Пуля летит детерминированно (строго вверх), синхронизация позиции не нужна.
-    /// </summary>
-    [ClientRpc]
-    private void SpawnBulletClientRpc(Vector2 pos)
-    {
-        // Хост уже создал пулю в Shoot(), не дублируем
-        if (IsServer) return;
-
-        SpawnLocalBullet(pos, withCollision: false);
     }
 }
