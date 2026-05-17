@@ -3,7 +3,7 @@ using UnityEngine;
 public class Bullet : MonoBehaviour
 {
     public float speed = 10f;
-    public float damage = 1f;
+    public float damage = 25f; // Увеличили урон
     public float aoeRadius = 0f; // 0 = обычная пуля, >0 = AoE-урон в радиусе
 
     void Update()
@@ -39,8 +39,8 @@ public class Bullet : MonoBehaviour
         }
         else
         {
-            // Обычный урон: бьём только того, в кого попали
-            EnemyBase enemy = other.GetComponent<EnemyBase>();
+            // Ищем EnemyBase в самом объекте или в родителе
+            EnemyBase enemy = other.GetComponentInParent<EnemyBase>();
             if (enemy != null)
                 enemy.TakeDamage(damage);
         }

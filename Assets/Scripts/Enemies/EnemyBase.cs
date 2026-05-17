@@ -5,8 +5,8 @@ using System;
 public class EnemyBase : NetworkBehaviour
 {
     [Header("Stats")]
-    public float maxHealth = 100f;
-    public float moveSpeed = 2f;
+    public float maxHealth = 150f; // +50% (было 100)
+    public float moveSpeed = 1.5f; // +25% от 1.2 (было 1.2)
     public float collisionDamage = 25f; // урон кораблю при столкновении
 
     [Header("Explosion")]
@@ -22,7 +22,7 @@ public class EnemyBase : NetworkBehaviour
     protected float bottomThresholdY;
 
     public event Action<float, float> OnHealthChanged; // (currentHP, maxHP)
-
+    public static event Action OnEnemyDied; // Вызывается когда враг умирает или доходит до низа
 
     public override void OnNetworkSpawn()
     {
@@ -39,6 +39,11 @@ public class EnemyBase : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         currentHealth.OnValueChanged -= HandleHealthChanged;
+        
+        if (IsServer)
+        {
+            OnEnemyDied?.Invoke();
+        }
     }
 
     private void HandleHealthChanged(float oldVal, float newVal)
@@ -101,6 +106,15 @@ public class EnemyBase : NetworkBehaviour
     protected virtual void OnTriggerEnter2D(Collider2D other)
     {
         if (!IsServer) return;
+
+        // Ищем компонент EnemyBase в объекте или его родителях (на случай, если коллайдер на дочернем объекте)
+        EnemyBase enemy = other.GetComponentInParent<EnemyBase>();
+        
+        if (enemy != null)
+        {
+            // Если попали в самого себя (например, через триггер), игнорируем
+            if (enemy == this) return;
+        }
 
         // Проверяем тег — корабли игроков должны иметь тег "Player"
         if (!other.CompareTag("Player")) return;

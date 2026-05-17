@@ -11,6 +11,9 @@ public class GameUIManager : MonoBehaviour
     public Button resumeButton;
     public Button leaveButton;
     public Button endGameLeaveButton;
+    
+    [Header("Optional: HUD to hide on game over")]
+    public GameObject[] otherPanelsToHide; 
 
     [Header("Text")]
     public TMPro.TMP_Text statusText;
@@ -75,6 +78,15 @@ public class GameUIManager : MonoBehaviour
 
         if (endGamePanel != null)
             endGamePanel.SetActive(true);
+            
+        // Прячем другие панели, чтобы не было наложений
+        if (otherPanelsToHide != null)
+        {
+            foreach (var panel in otherPanelsToHide)
+            {
+                if (panel != null) panel.SetActive(false);
+            }
+        }
 
         if (endGameResultText != null)
         {

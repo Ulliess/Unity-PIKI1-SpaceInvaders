@@ -210,7 +210,7 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   maxHealth: 100
   bulletPrefab: {fileID: 4730091803151942297, guid: 404fa062389ad4d0e9de11c6a61b1e61, type: 3}
-  fireRate: 0.5
+  fireRate: 2
   moveSpeed: 5
 --- !u!114 &5727010543294665071
 MonoBehaviour:

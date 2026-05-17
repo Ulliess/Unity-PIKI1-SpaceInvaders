@@ -1570,6 +1570,95 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1352141564}
   m_CullTransparentMesh: 1
+--- !u!1 &1495511281
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1495511284}
+  - component: {fileID: 1495511282}
+  - component: {fileID: 1495511283}
+  m_Layer: 0
+  m_Name: EnemySpawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1495511282
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1495511281}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 3648877282
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &1495511283
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1495511281}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8448dda109d7b6545b242039bb5b4058, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemySpawner
+  ShowTopMostFoldoutHeaderGroup: 1
+  enemyPrefabs:
+  - {fileID: 5816943358924021711, guid: 88107271a98e66941b7c64bce8fca325, type: 3}
+  - {fileID: 5816943358924021711, guid: 171aee3dfd7d0334fbf30e97c5a347f2, type: 3}
+  - {fileID: 5816943358924021711, guid: 1bb6b6e606abc234080f6dd1852a1198, type: 3}
+  - {fileID: 5816943358924021711, guid: e85da433056092b47b6b6228a99f187c, type: 3}
+  - {fileID: 5816943358924021711, guid: 171aee3dfd7d0334fbf30e97c5a347f2, type: 3}
+  spawnWeights:
+  - 0.35
+  - 0.25
+  - 0.15
+  - 0.15
+  - 0.1
+  enemyCosts: 0100000002000000050000000300000002000000
+  currentLevel: 1
+  baseBudget: 10
+  budgetPerLevel: 5
+  spawnInterval: 2
+  minSpawnInterval: 0.5
+--- !u!4 &1495511284
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1495511281}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1244.1047, y: 767.3653, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1614514983
 GameObject:
   m_ObjectHideFlags: 0
@@ -2021,3 +2110,4 @@ SceneRoots:
   - {fileID: 1614514986}
   - {fileID: 599853253}
   - {fileID: 155438129}
+  - {fileID: 1495511284}
