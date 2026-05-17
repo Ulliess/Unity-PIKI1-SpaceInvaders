@@ -5,8 +5,8 @@ using System;
 public class EnemyBase : NetworkBehaviour
 {
     [Header("Stats")]
-    public float maxHealth = 150f; // +50% (было 100)
-    public float moveSpeed = 1.5f; // +25% от 1.2 (было 1.2)
+    public float maxHealth = 150f;
+    public float moveSpeed = 0.7f;
     public float collisionDamage = 25f; // урон кораблю при столкновении
 
     [Header("Explosion")]

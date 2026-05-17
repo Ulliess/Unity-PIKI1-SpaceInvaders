@@ -8,6 +8,8 @@ public class PlayerShip : NetworkBehaviour, IDamageable
     private NetworkVariable<float> currentHealth = new NetworkVariable<float>(
         0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
+    private bool isDead = false;
+
     [Header("Weapons")]
     public GameObject bulletPrefab;
     public float fireRate = 0.5f;
@@ -19,15 +21,57 @@ public class PlayerShip : NetworkBehaviour, IDamageable
     private float halfWidth;
     private float halfHeight;
 
+    public float GetHealthRatio() => Mathf.Clamp01(currentHealth.Value / maxHealth);
+
     public void TakeDamage(float amount)
     {
-        if (!IsServer) return;
+        if (!IsServer || isDead) return;
         currentHealth.Value -= amount;
+        
+        // Вспышка при попадании — рассылаем всем клиентам
+        OnDamagedClientRpc();
+        
         if (currentHealth.Value <= 0f)
         {
-            if (GameManager.Instance != null)
+            isDead = true;
+            DieClientRpc(transform.position);
+            
+            // Проверяем, остались ли живые игроки
+            bool anyAlive = false;
+            foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+            {
+                if (client.PlayerObject == null) continue;
+                var ship = client.PlayerObject.GetComponent<PlayerShip>();
+                if (ship != null && !ship.isDead)
+                {
+                    anyAlive = true;
+                    break;
+                }
+            }
+            
+            if (!anyAlive && GameManager.Instance != null)
+            {
                 GameManager.Instance.TriggerGameOver(false);
+            }
+            
+            // Деспавним корабль
+            if (NetworkObject.IsSpawned)
+                NetworkObject.Despawn();
         }
+    }
+    
+    [ClientRpc]
+    private void OnDamagedClientRpc()
+    {
+        var flash = GetComponent<PlayerDamageFlash>();
+        if (flash != null) flash.Flash();
+    }
+    
+    [ClientRpc]
+    private void DieClientRpc(Vector3 pos)
+    {
+        // TODO: Можно спавнить эффект взрыва здесь
+        Debug.Log("[PlayerShip] Корабль уничтожен!");
     }
 
     public override void OnNetworkSpawn()

@@ -17,11 +17,11 @@ public class EnemySpawner : NetworkBehaviour
 
     [Header("Level Settings")]
     public int currentLevel = 1;
-    public int baseBudget = 20; // +100% (было 10)
-    public int budgetPerLevel = 10; // +100% (было 5)
+    public int baseBudget = 100;
+    public int budgetPerLevel = 40;
 
     public float spawnInterval = 2.0f;
-    public float minSpawnInterval = 0.5f;
+    public float minSpawnInterval = 0.8f;
 
     private int remainingBudget;
     private int activeEnemiesCount = 0;
@@ -57,8 +57,8 @@ public class EnemySpawner : NetworkBehaviour
         timer = 0f;
         levelInProgress = true;
         
-        // С каждым уровнем враги спавнятся быстрее
-        spawnInterval = Mathf.Max(minSpawnInterval, 2.5f - (currentLevel * 0.2f));
+        // С каждым уровнем враги спавнятся чуть быстрее
+        spawnInterval = Mathf.Max(minSpawnInterval, 2.0f - (currentLevel * 0.1f));
 
         Debug.Log($"[EnemySpawner] Уровень {currentLevel} начат! Бюджет: {remainingBudget}");
     }
@@ -104,6 +104,23 @@ public class EnemySpawner : NetworkBehaviour
         if (netObj != null)
         {
             netObj.Spawn();
+            
+            // Усиливаем врагов с каждым уровнем
+            float difficultyMult = 1f + (currentLevel - 1) * 0.15f; // +15% за уровень
+            
+            EnemyBase eb = enemy.GetComponent<EnemyBase>();
+            if (eb != null)
+            {
+                eb.moveSpeed *= difficultyMult;
+                eb.maxHealth *= difficultyMult;
+            }
+            
+            EnemyShooter shooter = enemy.GetComponent<EnemyShooter>();
+            if (shooter != null)
+            {
+                // Враги стреляют чаще с каждым уровнем
+                shooter.shootInterval = Mathf.Max(1f, shooter.shootInterval / difficultyMult);
+            }
         }
         else
         {
@@ -131,7 +148,11 @@ public class EnemySpawner : NetworkBehaviour
     {
         Debug.Log($"[EnemySpawner] Уровень {currentLevel} ПРОЙДЕН!");
         
-        // TODO: Передать GameManager информацию о победе, начислить 1 очко
+        // Уведомляем GameManager (и UI) о прохождении уровня
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.NotifyWaveComplete(currentLevel);
+        }
 
         yield return new WaitForSeconds(3f); // Передышка 3 секунды между волнами
         

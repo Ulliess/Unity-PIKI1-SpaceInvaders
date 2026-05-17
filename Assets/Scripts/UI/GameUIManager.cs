@@ -18,6 +18,7 @@ public class GameUIManager : MonoBehaviour
     [Header("Text")]
     public TMPro.TMP_Text statusText;
     public TMPro.TMP_Text endGameResultText; // "ПОБЕДА" или "ПОРАЖЕНИЕ"
+    public TMPro.TMP_Text waveCompleteText;  // "Уровень X пройден!"
 
     private void Start()
     {
@@ -27,6 +28,9 @@ public class GameUIManager : MonoBehaviour
             
         if (endGamePanel != null)
             endGamePanel.SetActive(false);
+            
+        if (waveCompleteText != null)
+            waveCompleteText.gameObject.SetActive(false);
 
         // Привязываем кнопки
         if (resumeButton != null)
@@ -50,11 +54,15 @@ public class GameUIManager : MonoBehaviour
             GameManager.Instance.OnLocalPauseMenuToggled += UpdatePauseUI;
             GameManager.Instance.OnPlayerLeft += ShowPlayerLeftUI;
             GameManager.Instance.OnGameOver += ShowGameOverUI;
+            GameManager.Instance.OnWaveComplete += ShowWaveCompleteUI;
         }
     }
+    private bool isGameOver = false;
 
     private void ShowPlayerLeftUI(string message, bool canResume)
     {
+        // Если уже показано ПОРАЖЕНИЕ/ПОБЕДА — не показываем ничего сверху
+        if (isGameOver) return;
         if (pausePanel != null)
         {
             pausePanel.SetActive(true);
@@ -73,6 +81,8 @@ public class GameUIManager : MonoBehaviour
 
     private void ShowGameOverUI(bool isWin)
     {
+        isGameOver = true;
+        
         // Если открыта пауза - прячем её, чтобы не перекрывала
         if (pausePanel != null) pausePanel.SetActive(false);
 
@@ -166,6 +176,27 @@ public class GameUIManager : MonoBehaviour
             GameManager.Instance.OnLocalPauseMenuToggled -= UpdatePauseUI;
             GameManager.Instance.OnPlayerLeft -= ShowPlayerLeftUI;
             GameManager.Instance.OnGameOver -= ShowGameOverUI;
+            GameManager.Instance.OnWaveComplete -= ShowWaveCompleteUI;
         }
+    }
+    
+    private void ShowWaveCompleteUI(int waveNumber)
+    {
+        if (waveCompleteText != null)
+        {
+            waveCompleteText.text = $"УРОВЕНЬ {waveNumber} ПРОЙДЕН!";
+            waveCompleteText.color = Color.green;
+            waveCompleteText.gameObject.SetActive(true);
+            
+            // Автоматически прячем через 2.5 секунды
+            CancelInvoke(nameof(HideWaveCompleteText));
+            Invoke(nameof(HideWaveCompleteText), 2.5f);
+        }
+    }
+    
+    private void HideWaveCompleteText()
+    {
+        if (waveCompleteText != null)
+            waveCompleteText.gameObject.SetActive(false);
     }
 }

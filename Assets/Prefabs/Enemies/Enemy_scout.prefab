@@ -120,6 +120,7 @@ GameObject:
   - component: {fileID: 2704949487374428540}
   - component: {fileID: 6810868044833928048}
   - component: {fileID: -5943378737690252614}
+  - component: {fileID: 8425329432482003854}
   m_Layer: 0
   m_Name: Enemy_scout
   m_TagString: Enemy
@@ -364,6 +365,24 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
+--- !u!114 &8425329432482003854
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5816943358924021711}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9904fb2090ea642abb694ec4d5ecbc89, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyShooter
+  ShowTopMostFoldoutHeaderGroup: 1
+  enemyBulletPrefab: {fileID: 5926390101653689655, guid: 09efe427c5cdb4e849fbc4cacdfae683, type: 3}
+  shootInterval: 3
+  shootIntervalRandom: 1
+  bulletSpeed: 6
+  bulletDamage: 15
 --- !u!1 &5965120508633372243
 GameObject:
   m_ObjectHideFlags: 0

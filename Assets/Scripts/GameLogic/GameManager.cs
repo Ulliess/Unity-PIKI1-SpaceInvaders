@@ -14,6 +14,7 @@ public class GameManager : NetworkBehaviour
     public event Action<bool> OnLocalPauseMenuToggled;
     public event Action<string, bool> OnPlayerLeft; // <сообщение, можно_ли_продолжить>
     public event Action<bool> OnGameOver; // true = победа, false = поражение
+    public event Action<int> OnWaveComplete; // номер пройденного уровня
 
     public bool IsLocalMenuOpen { get; private set; }
 
@@ -126,6 +127,20 @@ public class GameManager : NetworkBehaviour
     {
         Time.timeScale = 0f; // Останавливаем игру
         OnGameOver?.Invoke(isWin);
+    }
+
+    public void NotifyWaveComplete(int waveNumber)
+    {
+        if (IsServer)
+        {
+            NotifyWaveCompleteClientRpc(waveNumber);
+        }
+    }
+
+    [ClientRpc]
+    private void NotifyWaveCompleteClientRpc(int waveNumber)
+    {
+        OnWaveComplete?.Invoke(waveNumber);
     }
 
     public override void OnDestroy()
