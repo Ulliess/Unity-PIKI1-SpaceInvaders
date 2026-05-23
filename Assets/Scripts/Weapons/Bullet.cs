@@ -4,28 +4,8 @@ using UnityEngine;
 public class Bullet : MonoBehaviour
 {
     public float speed = 10f;
-    public float damage = 25f;
-    public float aoeRadius = 0f; // 0 = обычная пуля, >0 = AoE-урон в радиусе
-    
-    /// <summary>
-    /// true = серверная пуля (наносит урон), false = клиентская (только визуал)
-    /// </summary>
-    [HideInInspector]
-    public bool canDealDamage = false;
-
-    /// <summary>ClientId игрока, выпустившего эту пулю. Устанавливается сервером в PlayerShip.</summary>
-    [HideInInspector]
-    public ulong shooterClientId = ulong.MaxValue;
-
-    void Awake()
-    {
-        var rb = GetComponent<Rigidbody2D>();
-        if (rb != null)
-        {
-            rb.bodyType = RigidbodyType2D.Kinematic;
-            rb.gravityScale = 0f;
-        }
-    }
+    public float damage = 1f;
+    public float aoeRadius = 0f; 
 
     void Update()
     {

@@ -20,6 +20,7 @@ public class PlayerShip : NetworkBehaviour, IDamageable
     private Rigidbody2D rb;
     private float halfWidth;
     private float halfHeight;
+    
 
     public float GetHealthRatio() => Mathf.Clamp01(currentHealth.Value / maxHealth);
 
