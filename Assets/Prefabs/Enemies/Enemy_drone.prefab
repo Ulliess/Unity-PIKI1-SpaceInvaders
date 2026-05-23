@@ -318,9 +318,10 @@ MonoBehaviour:
   maxHealth: 200
   moveSpeed: 0.35
   collisionDamage: 20
+  scoreValue: 20
   explosionPrefab: {fileID: 0}
   zigzagSpeed: 1.5
-  screenMargin: 1.0
+  screenMargin: 1
 --- !u!114 &1879914894399300027
 MonoBehaviour:
   m_ObjectHideFlags: 0

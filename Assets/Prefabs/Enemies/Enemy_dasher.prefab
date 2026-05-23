@@ -317,6 +317,7 @@ MonoBehaviour:
   maxHealth: 160
   moveSpeed: 0.22
   collisionDamage: 40
+  scoreValue: 25
   explosionPrefab: {fileID: 0}
   dashSpeedMultiplier: 6
   dashDuration: 0.3

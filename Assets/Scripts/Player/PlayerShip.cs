@@ -23,9 +23,6 @@ public class PlayerShip : NetworkBehaviour, IDamageable
 
     public float GetHealthRatio() => Mathf.Clamp01(currentHealth.Value / maxHealth);
 
-    /// <summary>
-    /// Полностью восстанавливает HP. Вызывается только на сервере.
-    /// </summary>
     public void FullHeal()
     {
         if (!IsServer || isDead) return;
@@ -36,16 +33,14 @@ public class PlayerShip : NetworkBehaviour, IDamageable
     {
         if (!IsServer || isDead) return;
         currentHealth.Value -= amount;
-        
-        // Вспышка при попадании — рассылаем всем клиентам
+
         OnDamagedClientRpc();
-        
+
         if (currentHealth.Value <= 0f)
         {
             isDead = true;
             DieClientRpc(transform.position);
-            
-            // Проверяем, остались ли живые игроки
+
             bool anyAlive = false;
             foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
             {
@@ -57,29 +52,27 @@ public class PlayerShip : NetworkBehaviour, IDamageable
                     break;
                 }
             }
-            
+
             if (!anyAlive && GameManager.Instance != null)
             {
                 GameManager.Instance.TriggerGameOver(false);
             }
-            
-            // Деспавним корабль
+
             if (NetworkObject.IsSpawned)
                 NetworkObject.Despawn();
         }
     }
-    
+
     [ClientRpc]
     private void OnDamagedClientRpc()
     {
         var flash = GetComponent<PlayerDamageFlash>();
         if (flash != null) flash.Flash();
     }
-    
+
     [ClientRpc]
     private void DieClientRpc(Vector3 pos)
     {
-        // TODO: Можно спавнить эффект взрыва здесь
         Debug.Log("[PlayerShip] Корабль уничтожен!");
     }
 
@@ -88,22 +81,19 @@ public class PlayerShip : NetworkBehaviour, IDamageable
         base.OnNetworkSpawn();
         if (IsOwner)
         {
-            // Определяем позицию по ClientId, а не IsServer
             bool isHost = OwnerClientId == NetworkManager.ServerClientId;
             Vector3 startPos = isHost ? new Vector3(-3f, -3f, 0f) : new Vector3(3f, -3f, 0f);
             transform.position = startPos;
-            
+
             var rBody = GetComponent<Rigidbody2D>();
             if (rBody != null)
             {
                 rBody.position = startPos;
                 rBody.linearVelocity = Vector2.zero;
             }
-            
-            // Повторяем через кадр, чтобы NetworkTransform не перезаписал
+
             StartCoroutine(ForcePositionNextFrame(startPos));
-            
-            // Таймер стрельбы теперь крутится У ВЛАДЕЛЬЦА
+
             double interval = 1.0 / fireRate;
             nextFireTime = System.Math.Ceiling(NetworkManager.Singleton.LocalTime.Time / interval) * interval;
         }
@@ -113,10 +103,10 @@ public class PlayerShip : NetworkBehaviour, IDamageable
             currentHealth.Value = maxHealth;
         }
     }
-    
+
     private System.Collections.IEnumerator ForcePositionNextFrame(Vector3 pos)
     {
-        yield return null; // Ждём 1 кадр
+        yield return null;
         transform.position = pos;
         var rb = GetComponent<Rigidbody2D>();
         if (rb != null) rb.position = pos;
@@ -137,11 +127,11 @@ public class PlayerShip : NetworkBehaviour, IDamageable
     {
         if (IsOwner)
         {
-            if (GameManager.Instance != null && 
+            if (GameManager.Instance != null &&
                (GameManager.Instance.IsGlobalPaused.Value || GameManager.Instance.IsLocalMenuOpen))
             {
                 if (rb != null) rb.linearVelocity = Vector2.zero;
-                
+
                 if (NetworkManager.Singleton.LocalTime.Time >= nextFireTime)
                 {
                     nextFireTime += 1.0 / fireRate;
@@ -157,21 +147,18 @@ public class PlayerShip : NetworkBehaviour, IDamageable
                     rb.linearVelocity = new Vector2(x, y) * moveSpeed;
                 }
 
-                // Владелец стреляет визуально без задержек (Client-Side Prediction)
                 double localTime = NetworkManager.Singleton.LocalTime.Time;
                 if (localTime >= nextFireTime)
                 {
                     Vector2 spawnPos = rb != null ? (Vector2)rb.position : (Vector2)transform.position;
                     Vector2 finalSpawnPos = spawnPos + new Vector2(0, halfHeight + 0.2f);
-                    
-                    // Рисуем пулю себе моментально
-                    SpawnLocalBullet(finalSpawnPos, false);
-                    
-                    // Отправляем на сервер свои координаты для просчёта урона
+
+                    // Визуальная пуля у владельца (без shooterClientId — урона не наносит)
+                    SpawnLocalBullet(finalSpawnPos, false, ulong.MaxValue);
+
+                    // Отправляем на сервер: там будет физическая пуля с нашим ClientId
                     ShootServerRpc(finalSpawnPos);
-                    
-                    // Следующий выстрел через interval от СЕЙЧАС, а не от nextFireTime
-                    // Это предотвращает залповую стрельбу при скачках времени
+
                     double interval = 1.0 / fireRate;
                     nextFireTime = localTime + interval;
                 }
@@ -192,39 +179,40 @@ public class PlayerShip : NetworkBehaviour, IDamageable
         rb.position = pos;
     }
 
-    // Требуем, чтобы RPC вызывал только владелец
+    /// <summary>
+    /// Добавлен ServerRpcParams — сервер узнаёт ClientId стрелявшего и передаёт его пуле.
+    /// </summary>
     [ServerRpc]
-    private void ShootServerRpc(Vector2 pos)
+    private void ShootServerRpc(Vector2 pos, ServerRpcParams serverRpcParams = default)
     {
-        // Сервер спавнит физическую пулю ровно в координатах клиента
-        SpawnLocalBullet(pos, true);
-        
-        // Сервер просит остальных игроков нарисовать пулю
+        ulong shooterId = serverRpcParams.Receive.SenderClientId;
+
+        // Серверная пуля: наносит урон и несёт shooterClientId для начисления очков
+        SpawnLocalBullet(pos, true, shooterId);
+
+        // Просим остальных клиентов нарисовать пулю
         ShootClientRpc(pos);
     }
 
     [ClientRpc]
     private void ShootClientRpc(Vector2 pos)
     {
-        // Владелец уже сам себе всё нарисовал
-        if (IsOwner) return;
-
-        SpawnLocalBullet(pos, false);
+        if (IsOwner) return; // Владелец уже нарисовал себе визуальную пулю
+        SpawnLocalBullet(pos, false, ulong.MaxValue);
     }
 
-    private void SpawnLocalBullet(Vector2 pos, bool isServerBullet)
+    private void SpawnLocalBullet(Vector2 pos, bool isServerBullet, ulong shooterId)
     {
         if (bulletPrefab == null) return;
         GameObject bullet = Instantiate(bulletPrefab, pos, Quaternion.identity);
 
-        // Устанавливаем флаг урона
         Bullet b = bullet.GetComponent<Bullet>();
         if (b != null)
         {
             b.canDealDamage = isServerBullet;
+            b.shooterClientId = shooterId; // Только у серверной пули значение != ulong.MaxValue
         }
 
-        // Игнорируем столкновение с собственным кораблём
         Collider2D bulletCollider = bullet.GetComponent<Collider2D>();
         Collider2D shipCollider = GetComponent<Collider2D>();
         if (bulletCollider != null && shipCollider != null)

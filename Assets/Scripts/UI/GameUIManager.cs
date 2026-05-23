@@ -4,214 +4,229 @@ using UnityEngine.UI;
 public class GameUIManager : MonoBehaviour
 {
     [Header("Panels")]
-    public GameObject pausePanel; // Панель паузы
-    public GameObject endGamePanel; // Панель конца игры
+    public GameObject pausePanel;
+    public GameObject endGamePanel;
 
     [Header("Buttons")]
     public Button resumeButton;
     public Button leaveButton;
     public Button endGameLeaveButton;
-    
-    [Header("Optional: HUD to hide on game over")]
-    public GameObject[] otherPanelsToHide; 
 
-    [Header("Text")]
+    [Header("Optional: HUD to hide on game over")]
+    public GameObject[] otherPanelsToHide;
+
+    [Header("Text — Pause / Status")]
     public TMPro.TMP_Text statusText;
-    public TMPro.TMP_Text endGameResultText; // "ПОБЕДА" или "ПОРАЖЕНИЕ"
-    public TMPro.TMP_Text waveCompleteText;  // "Уровень X пройден!"
+    public TMPro.TMP_Text endGameResultText;    // "ПОБЕДА" или "ПОРАЖЕНИЕ"
+    public TMPro.TMP_Text waveCompleteText;     // "Уровень X пройден!"
+
+    [Header("Text — End Game Scores")]
+    [Tooltip("Текст под результатом на панели EndGame. Формат: YOU: 350  |  RIVAL: 420")]
+    public TMPro.TMP_Text endGameScoresText;
+
+    [Header("Score HUD (live)")]
+    [Tooltip("TMP_Text в левом верхнем углу — очки локального игрока")]
+    public TMPro.TMP_Text hudYouScoreText;
+    [Tooltip("TMP_Text в правом верхнем углу — очки соперника")]
+    public TMPro.TMP_Text hudRivalScoreText;
+
+    // ───────────────────────────────────────────────────────────────────────
+    private bool isGameOver = false;
 
     private void Start()
     {
-        // Прячем панель на старте
-        if (pausePanel != null)
-            pausePanel.SetActive(false);
-            
-        if (endGamePanel != null)
-            endGamePanel.SetActive(false);
-            
-        if (waveCompleteText != null)
-            waveCompleteText.gameObject.SetActive(false);
+        if (pausePanel != null)   pausePanel.SetActive(false);
+        if (endGamePanel != null) endGamePanel.SetActive(false);
+        if (waveCompleteText != null) waveCompleteText.gameObject.SetActive(false);
 
-        // Привязываем кнопки
-        if (resumeButton != null)
-            resumeButton.onClick.AddListener(OnResumeClicked);
+        // Инициализируем HUD нулями
+        SetHudText(hudYouScoreText,   "YOU",   0);
+        SetHudText(hudRivalScoreText, "RIVAL", 0);
 
-        if (leaveButton != null)
-            leaveButton.onClick.AddListener(OnLeaveClicked);
-            
-        if (endGameLeaveButton != null)
-            endGameLeaveButton.onClick.AddListener(OnLeaveClicked);
+        if (resumeButton != null)      resumeButton.onClick.AddListener(OnResumeClicked);
+        if (leaveButton != null)       leaveButton.onClick.AddListener(OnLeaveClicked);
+        if (endGameLeaveButton != null) endGameLeaveButton.onClick.AddListener(OnLeaveClicked);
 
-        // Ждём инициализации GameManager
-        Invoke(nameof(SubscribeToGameManager), 0.5f);
+        // Ждём инициализации сетевых менеджеров
+        Invoke(nameof(SubscribeToManagers), 0.5f);
     }
 
-    private void SubscribeToGameManager()
+    // ── Подписки ────────────────────────────────────────────────────────────
+
+    private void SubscribeToManagers()
     {
         if (GameManager.Instance != null)
         {
-            GameManager.Instance.OnGlobalPauseChanged += UpdatePauseUI;
+            GameManager.Instance.OnGlobalPauseChanged   += UpdatePauseUI;
             GameManager.Instance.OnLocalPauseMenuToggled += UpdatePauseUI;
-            GameManager.Instance.OnPlayerLeft += ShowPlayerLeftUI;
-            GameManager.Instance.OnGameOver += ShowGameOverUI;
-            GameManager.Instance.OnWaveComplete += ShowWaveCompleteUI;
-            GameManager.Instance.OnHealWave += ShowHealWaveUI;
+            GameManager.Instance.OnPlayerLeft           += ShowPlayerLeftUI;
+            GameManager.Instance.OnGameOver             += ShowGameOverUI;
+            GameManager.Instance.OnWaveComplete         += ShowWaveCompleteUI;
+            GameManager.Instance.OnHealWave             += ShowHealWaveUI;
         }
-    }
-    private bool isGameOver = false;
 
-    private void ShowPlayerLeftUI(string message, bool canResume)
-    {
-        // Если уже показано ПОРАЖЕНИЕ/ПОБЕДА — не показываем ничего сверху
-        if (isGameOver) return;
-        if (pausePanel != null)
+        if (ScoreManager.Instance != null)
         {
-            pausePanel.SetActive(true);
-
-            if (statusText != null)
-            {
-                statusText.text = message;
-            }
-
-            if (resumeButton != null)
-            {
-                resumeButton.gameObject.SetActive(canResume);
-            }
+            ScoreManager.Instance.OnScoresChanged += UpdateScoreHUD;
+            UpdateScoreHUD(); // первоначальный показ (0 : 0)
         }
     }
+
+    // ── Score HUD ───────────────────────────────────────────────────────────
+
+    private void UpdateScoreHUD()
+    {
+        if (ScoreManager.Instance == null) return;
+
+        SetHudText(hudYouScoreText,   "YOU",   ScoreManager.Instance.GetMyScore());
+        SetHudText(hudRivalScoreText, "RIVAL", ScoreManager.Instance.GetRivalScore());
+    }
+
+    /// Вспомогательный метод — формирует строку "LABEL\n0000"
+    private void SetHudText(TMPro.TMP_Text target, string label, int score)
+    {
+        if (target == null) return;
+        target.text = $"{label}\n{score}";
+    }
+
+    // ── Game Over ────────────────────────────────────────────────────────────
 
     private void ShowGameOverUI(bool isWin)
     {
         isGameOver = true;
-        
-        // Если открыта пауза - прячем её, чтобы не перекрывала
-        if (pausePanel != null) pausePanel.SetActive(false);
 
-        if (endGamePanel != null)
-            endGamePanel.SetActive(true);
-            
-        // Прячем другие панели, чтобы не было наложений
+        if (pausePanel != null) pausePanel.SetActive(false);
+        if (endGamePanel != null) endGamePanel.SetActive(true);
+
         if (otherPanelsToHide != null)
         {
             foreach (var panel in otherPanelsToHide)
-            {
                 if (panel != null) panel.SetActive(false);
-            }
         }
+
+        // Скрываем HUD очков — они будут показаны в панели итогов
+        if (hudYouScoreText != null)   hudYouScoreText.gameObject.SetActive(false);
+        if (hudRivalScoreText != null) hudRivalScoreText.gameObject.SetActive(false);
 
         if (endGameResultText != null)
         {
-            endGameResultText.text = isWin ? "ПОБЕДА!" : "ПОРАЖЕНИЕ";
+            endGameResultText.text  = isWin ? "ПОБЕДА!" : "ПОРАЖЕНИЕ";
             endGameResultText.color = isWin ? Color.green : Color.red;
+        }
+
+        // Финальные очки обоих игроков
+        if (endGameScoresText != null && ScoreManager.Instance != null)
+        {
+            int myScore    = ScoreManager.Instance.GetMyScore();
+            int rivalScore = ScoreManager.Instance.GetRivalScore();
+            endGameScoresText.text = $"Вы: {myScore}     Соперник: {rivalScore}";
+        }
+    }
+
+    // ── Pause ────────────────────────────────────────────────────────────────
+
+    private void ShowPlayerLeftUI(string message, bool canResume)
+    {
+        if (isGameOver) return;
+        if (pausePanel != null)
+        {
+            pausePanel.SetActive(true);
+            if (statusText != null) statusText.text = message;
+            if (resumeButton != null) resumeButton.gameObject.SetActive(canResume);
         }
     }
 
     private void UpdatePauseUI(bool isMenuOpenParam)
     {
-        if (pausePanel != null)
+        if (pausePanel == null) return;
+
+        bool shouldBeOpen = GameManager.Instance.IsGlobalPaused.Value || GameManager.Instance.IsLocalMenuOpen;
+        pausePanel.SetActive(shouldBeOpen);
+
+        if (shouldBeOpen && statusText != null)
         {
-            // Панель должна быть показана, если включена ЛИБО глобальная пауза, ЛИБО локальная
-            bool shouldBeOpen = GameManager.Instance.IsGlobalPaused.Value || GameManager.Instance.IsLocalMenuOpen;
-            pausePanel.SetActive(shouldBeOpen);
-
-            if (shouldBeOpen && statusText != null)
+            if (GameManager.Instance.IsGlobalPaused.Value)
             {
-                if (GameManager.Instance.IsGlobalPaused.Value)
-                {
-                    statusText.text = Unity.Netcode.NetworkManager.Singleton.IsServer 
-                        ? "ПАУЗА" 
-                        : "Хост поставил игру на паузу";
-                }
-                else
-                {
-                    statusText.text = "ПАУЗА (Локально)";
-                }
-            }
-
-            if (resumeButton != null)
-            {
-                // Кнопка "Продолжить" работает только если:
-                // Мы сервер (сервер управляет всем) ИЛИ глобальной паузы нет
-                bool canResume = Unity.Netcode.NetworkManager.Singleton.IsServer || !GameManager.Instance.IsGlobalPaused.Value;
-                resumeButton.interactable = canResume;
-                resumeButton.gameObject.SetActive(true); // Сама кнопка всегда видима, но может быть некликабельна
-            }
-        }
-    }
-
-    private void OnResumeClicked()
-    {
-        // Кнопка "Продолжить" симулирует нажатие ESC
-        if (GameManager.Instance != null)
-        {
-            // Поскольку это локальное действие, если мы хост, мы снимаем глобальную паузу
-            // Если клиент, просто закрываем локальную менюшку
-            if (Unity.Netcode.NetworkManager.Singleton.IsServer)
-            {
-                GameManager.Instance.IsGlobalPaused.Value = false;
+                statusText.text = Unity.Netcode.NetworkManager.Singleton.IsServer
+                    ? "ПАУЗА"
+                    : "Хост поставил игру на паузу";
             }
             else
             {
-                // Правильно переключаем стейт в GameManager, а не просто прячем UI
-                if (GameManager.Instance.IsLocalMenuOpen)
-                {
-                    GameManager.Instance.ToggleLocalPauseMenu();
-                }
+                statusText.text = "ПАУЗА (Локально)";
             }
         }
-    }
 
-    private void OnLeaveClicked()
-    {
-        if (GameManager.Instance != null)
+        if (resumeButton != null)
         {
-            GameManager.Instance.DisconnectAndLeave();
+            bool canResume = Unity.Netcode.NetworkManager.Singleton.IsServer || !GameManager.Instance.IsGlobalPaused.Value;
+            resumeButton.interactable = canResume;
+            resumeButton.gameObject.SetActive(true);
         }
     }
 
-    private void OnDestroy()
-    {
-        if (GameManager.Instance != null)
-        {
-            GameManager.Instance.OnGlobalPauseChanged -= UpdatePauseUI;
-            GameManager.Instance.OnLocalPauseMenuToggled -= UpdatePauseUI;
-            GameManager.Instance.OnPlayerLeft -= ShowPlayerLeftUI;
-            GameManager.Instance.OnGameOver -= ShowGameOverUI;
-            GameManager.Instance.OnWaveComplete -= ShowWaveCompleteUI;
-            GameManager.Instance.OnHealWave -= ShowHealWaveUI;
-        }
-    }
-    
+    // ── Wave Complete ────────────────────────────────────────────────────────
+
     private void ShowWaveCompleteUI(int waveNumber)
     {
-        if (waveCompleteText != null)
-        {
-            waveCompleteText.text = $"УРОВЕНЬ {waveNumber} ПРОЙДЕН!";
-            waveCompleteText.color = Color.green;
-            waveCompleteText.gameObject.SetActive(true);
-            
-            // Автоматически прячем через 2.5 секунды
-            CancelInvoke(nameof(HideWaveCompleteText));
-            Invoke(nameof(HideWaveCompleteText), 2.5f);
-        }
+        if (waveCompleteText == null) return;
+        waveCompleteText.text = $"УРОВЕНЬ {waveNumber} ПРОЙДЕН!";
+        waveCompleteText.color = Color.green;
+        waveCompleteText.gameObject.SetActive(true);
+
+        CancelInvoke(nameof(HideWaveCompleteText));
+        Invoke(nameof(HideWaveCompleteText), 2.5f);
     }
-    
+
     private void HideWaveCompleteText()
     {
         if (waveCompleteText != null)
             waveCompleteText.gameObject.SetActive(false);
     }
-    
+
     private void ShowHealWaveUI()
     {
-        if (waveCompleteText != null)
+        if (waveCompleteText == null) return;
+        waveCompleteText.text += "\n<size=70%>Все игроки вылечены и возрождены!</size>";
+        waveCompleteText.color = new Color(0.3f, 1f, 0.5f);
+
+        CancelInvoke(nameof(HideWaveCompleteText));
+        Invoke(nameof(HideWaveCompleteText), 3.5f);
+    }
+
+    // ── Buttons ──────────────────────────────────────────────────────────────
+
+    private void OnResumeClicked()
+    {
+        if (GameManager.Instance == null) return;
+
+        if (Unity.Netcode.NetworkManager.Singleton.IsServer)
+            GameManager.Instance.IsGlobalPaused.Value = false;
+        else if (GameManager.Instance.IsLocalMenuOpen)
+            GameManager.Instance.ToggleLocalPauseMenu();
+    }
+
+    private void OnLeaveClicked()
+    {
+        if (GameManager.Instance != null)
+            GameManager.Instance.DisconnectAndLeave();
+    }
+
+    // ── Cleanup ───────────────────────────────────────────────────────────────
+
+    private void OnDestroy()
+    {
+        if (GameManager.Instance != null)
         {
-            waveCompleteText.text += "\n<size=70%>Все игроки вылечены и возрождены!</size>";
-            waveCompleteText.color = new Color(0.3f, 1f, 0.5f); // Яркий зелёный
-            
-            // Даём чуть больше времени прочитать
-            CancelInvoke(nameof(HideWaveCompleteText));
-            Invoke(nameof(HideWaveCompleteText), 3.5f);
+            GameManager.Instance.OnGlobalPauseChanged    -= UpdatePauseUI;
+            GameManager.Instance.OnLocalPauseMenuToggled -= UpdatePauseUI;
+            GameManager.Instance.OnPlayerLeft            -= ShowPlayerLeftUI;
+            GameManager.Instance.OnGameOver              -= ShowGameOverUI;
+            GameManager.Instance.OnWaveComplete          -= ShowWaveCompleteUI;
+            GameManager.Instance.OnHealWave              -= ShowHealWaveUI;
         }
+
+        if (ScoreManager.Instance != null)
+            ScoreManager.Instance.OnScoresChanged -= UpdateScoreHUD;
     }
 }

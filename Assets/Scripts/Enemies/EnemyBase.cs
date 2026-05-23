@@ -9,6 +9,10 @@ public class EnemyBase : NetworkBehaviour
     public float moveSpeed = 0.7f;
     public float collisionDamage = 25f; // урон кораблю при столкновении
 
+    [Header("Score")]
+    [Tooltip("Сколько очков даёт этот враг тому, кто его убьёт")]
+    public int scoreValue = 10;
+
     [Header("Explosion")]
     public GameObject explosionPrefab;
 
@@ -20,6 +24,9 @@ public class EnemyBase : NetworkBehaviour
     );
 
     protected float bottomThresholdY;
+
+    // ClientId последнего, кто нанёс урон — получит очки за убийство
+    protected ulong lastAttackerId = ulong.MaxValue;
 
     public event Action<float, float> OnHealthChanged; // (currentHP, maxHP)
     public static event Action OnEnemyDied; // Вызывается когда враг умирает или доходит до низа
@@ -73,9 +80,18 @@ public class EnemyBase : NetworkBehaviour
     }
 
   
-    public virtual void TakeDamage(float damage)
+    /// <summary>
+    /// Нанести урон врагу.
+    /// attackerId — ClientId стрелявшего игрока (ulong.MaxValue если неизвестен).
+    /// Подпись с optional-параметром обратно совместима: старые вызовы без attackerId работают без изменений.
+    /// </summary>
+    public virtual void TakeDamage(float damage, ulong attackerId = ulong.MaxValue)
     {
         if (!IsServer) return;
+
+        // Запоминаем последнего атакующего для начисления очков
+        if (attackerId != ulong.MaxValue)
+            lastAttackerId = attackerId;
 
         currentHealth.Value -= damage;
         if (currentHealth.Value <= 0f)
@@ -84,6 +100,12 @@ public class EnemyBase : NetworkBehaviour
 
     protected virtual void Die()
     {
+        // Начисляем очки тому, кто нанёс последний удар
+        if (lastAttackerId != ulong.MaxValue && ScoreManager.Instance != null)
+        {
+            ScoreManager.Instance.AddScore(lastAttackerId, scoreValue);
+        }
+
         SpawnExplosionClientRpc(transform.position);
 
         if (NetworkObject.IsSpawned)
@@ -93,6 +115,7 @@ public class EnemyBase : NetworkBehaviour
 
     protected virtual void ReachBottom()
     {
+        // Враг достиг низа — не даёт очков, триггерит поражение
         SpawnExplosionClientRpc(transform.position);
 
         if (GameManager.Instance != null)
@@ -107,22 +130,17 @@ public class EnemyBase : NetworkBehaviour
     {
         if (!IsServer) return;
 
-        // Ищем компонент EnemyBase в объекте или его родителях (на случай, если коллайдер на дочернем объекте)
         EnemyBase enemy = other.GetComponentInParent<EnemyBase>();
-        
-        if (enemy != null)
-        {
-            // Если попали в самого себя (например, через триггер), игнорируем
-            if (enemy == this) return;
-        }
+        if (enemy != null && enemy == this) return;
 
-        // Проверяем тег — корабли игроков должны иметь тег "Player"
         if (!other.CompareTag("Player")) return;
 
         IDamageable damageable = other.GetComponent<IDamageable>();
         if (damageable != null)
             damageable.TakeDamage(collisionDamage);
 
+        // При столкновении враг погибает без начисления очков
+        // (lastAttackerId остаётся ulong.MaxValue)
         Die();
     }
 

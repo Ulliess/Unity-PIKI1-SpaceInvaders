@@ -318,6 +318,7 @@ MonoBehaviour:
   maxHealth: 600
   moveSpeed: 0.18
   collisionDamage: 50
+  scoreValue: 50
   explosionPrefab: {fileID: 0}
 --- !u!114 &-211182550350117363
 MonoBehaviour:

@@ -13,6 +13,10 @@ public class Bullet : MonoBehaviour
     [HideInInspector]
     public bool canDealDamage = false;
 
+    /// <summary>ClientId игрока, выпустившего эту пулю. Устанавливается сервером в PlayerShip.</summary>
+    [HideInInspector]
+    public ulong shooterClientId = ulong.MaxValue;
+
     void Awake()
     {
         var rb = GetComponent<Rigidbody2D>();
