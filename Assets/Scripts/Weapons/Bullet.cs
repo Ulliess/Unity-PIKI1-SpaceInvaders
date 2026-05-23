@@ -4,7 +4,7 @@ public class Bullet : MonoBehaviour
 {
     public float speed = 10f;
     public float damage = 1f;
-    public float aoeRadius = 0f; // 0 = обычная пуля, >0 = AoE-урон в радиусе
+    public float aoeRadius = 0f; 
 
     void Update()
     {

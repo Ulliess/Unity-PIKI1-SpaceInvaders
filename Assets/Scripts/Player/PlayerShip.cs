@@ -18,6 +18,7 @@ public class PlayerShip : NetworkBehaviour, IDamageable
     private Rigidbody2D rb;
     private float halfWidth;
     private float halfHeight;
+    
 
     /// <summary>
     /// IDamageable — враги вызывают это при столкновении с кораблём.
