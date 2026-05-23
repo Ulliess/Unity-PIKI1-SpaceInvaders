@@ -4,14 +4,15 @@ using Unity.Netcode;
 public class EnemyZigzag : EnemyBase
 {
     [Header("Zigzag Movement")]
-    [Tooltip("Максимальное отклонение по X от стартовой позиции")]
-    public float zigzagAmplitude = 2f;
+    [Tooltip("Скорость горизонтального движения")]
+    public float zigzagSpeed = 1.5f;
 
-    [Tooltip("Количество полных колебаний в секунду")]
-    public float zigzagFrequency = 1.5f;
+    [Tooltip("Отступ от края экрана")]
+    public float screenMargin = 1.0f;
 
-    private float startX;
-    private float spawnTime;
+    private float direction = 1f; // 1 = вправо, -1 = влево
+    private float leftBound;
+    private float rightBound;
 
     public override void OnNetworkSpawn()
     {
@@ -19,20 +20,46 @@ public class EnemyZigzag : EnemyBase
 
         if (IsServer)
         {
-            startX = transform.position.x;
-            spawnTime = Time.time;
+            // Вычисляем границы экрана
+            if (Camera.main != null)
+            {
+                float camHalfWidth = Camera.main.orthographicSize * Camera.main.aspect;
+                leftBound = -camHalfWidth + screenMargin;
+                rightBound = camHalfWidth - screenMargin;
+            }
+            else
+            {
+                leftBound = -5f;
+                rightBound = 5f;
+            }
+
+            // Случайное начальное направление
+            direction = Random.value > 0.5f ? 1f : -1f;
         }
     }
 
     protected override void MoveDown()
     {
-        float elapsed = Time.time - spawnTime;
-
-        float xOffset = Mathf.Sin(elapsed * zigzagFrequency * Mathf.PI * 2f) * zigzagAmplitude;
-
         Vector3 pos = transform.position;
+
+        // Двигаемся вниз
         pos.y -= moveSpeed * Time.deltaTime;
-        pos.x = startX + xOffset;
+
+        // Двигаемся горизонтально (DVD-bounce)
+        pos.x += direction * zigzagSpeed * Time.deltaTime;
+
+        // Отталкиваемся от краёв экрана
+        if (pos.x <= leftBound)
+        {
+            pos.x = leftBound;
+            direction = 1f;
+        }
+        else if (pos.x >= rightBound)
+        {
+            pos.x = rightBound;
+            direction = -1f;
+        }
+
         transform.position = pos;
     }
 }

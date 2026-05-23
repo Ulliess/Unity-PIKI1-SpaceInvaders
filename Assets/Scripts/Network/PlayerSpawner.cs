@@ -56,6 +56,16 @@ public class PlayerSpawner : NetworkBehaviour
         netObj.SpawnAsPlayerObject(clientId);
     }
 
+    /// <summary>
+    /// Воскрешает мёртвого игрока. Вызывается из GameManager при хил-волне.
+    /// </summary>
+    public void RespawnPlayer(ulong clientId)
+    {
+        if (!IsServer) return;
+        SpawnPlayer(clientId); // SpawnPlayer уже проверяет нет ли у клиента объекта
+        Debug.Log($"[PlayerSpawner] Игрок {clientId} воскрешён!");
+    }
+
     public override void OnNetworkDespawn()
     {
         if (IsServer)

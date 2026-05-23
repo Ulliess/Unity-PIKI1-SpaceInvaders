@@ -8,7 +8,7 @@ public class PlayerShip : NetworkBehaviour, IDamageable
     private NetworkVariable<float> currentHealth = new NetworkVariable<float>(
         0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    private bool isDead = false;
+    public bool isDead = false;
 
     [Header("Weapons")]
     public GameObject bulletPrefab;
@@ -22,6 +22,15 @@ public class PlayerShip : NetworkBehaviour, IDamageable
     private float halfHeight;
 
     public float GetHealthRatio() => Mathf.Clamp01(currentHealth.Value / maxHealth);
+
+    /// <summary>
+    /// Полностью восстанавливает HP. Вызывается только на сервере.
+    /// </summary>
+    public void FullHeal()
+    {
+        if (!IsServer || isDead) return;
+        currentHealth.Value = maxHealth;
+    }
 
     public void TakeDamage(float amount)
     {
@@ -79,11 +88,20 @@ public class PlayerShip : NetworkBehaviour, IDamageable
         base.OnNetworkSpawn();
         if (IsOwner)
         {
-            Vector3 startPos = IsServer ? new Vector3(-3f, -3f, 0f) : new Vector3(3f, -3f, 0f);
+            // Определяем позицию по ClientId, а не IsServer
+            bool isHost = OwnerClientId == NetworkManager.ServerClientId;
+            Vector3 startPos = isHost ? new Vector3(-3f, -3f, 0f) : new Vector3(3f, -3f, 0f);
             transform.position = startPos;
             
             var rBody = GetComponent<Rigidbody2D>();
-            if (rBody != null) rBody.position = startPos;
+            if (rBody != null)
+            {
+                rBody.position = startPos;
+                rBody.linearVelocity = Vector2.zero;
+            }
+            
+            // Повторяем через кадр, чтобы NetworkTransform не перезаписал
+            StartCoroutine(ForcePositionNextFrame(startPos));
             
             // Таймер стрельбы теперь крутится У ВЛАДЕЛЬЦА
             double interval = 1.0 / fireRate;
@@ -94,6 +112,14 @@ public class PlayerShip : NetworkBehaviour, IDamageable
         {
             currentHealth.Value = maxHealth;
         }
+    }
+    
+    private System.Collections.IEnumerator ForcePositionNextFrame(Vector3 pos)
+    {
+        yield return null; // Ждём 1 кадр
+        transform.position = pos;
+        var rb = GetComponent<Rigidbody2D>();
+        if (rb != null) rb.position = pos;
     }
 
     void Start()
@@ -132,7 +158,8 @@ public class PlayerShip : NetworkBehaviour, IDamageable
                 }
 
                 // Владелец стреляет визуально без задержек (Client-Side Prediction)
-                if (NetworkManager.Singleton.LocalTime.Time >= nextFireTime)
+                double localTime = NetworkManager.Singleton.LocalTime.Time;
+                if (localTime >= nextFireTime)
                 {
                     Vector2 spawnPos = rb != null ? (Vector2)rb.position : (Vector2)transform.position;
                     Vector2 finalSpawnPos = spawnPos + new Vector2(0, halfHeight + 0.2f);
@@ -143,7 +170,10 @@ public class PlayerShip : NetworkBehaviour, IDamageable
                     // Отправляем на сервер свои координаты для просчёта урона
                     ShootServerRpc(finalSpawnPos);
                     
-                    nextFireTime += 1.0 / fireRate;
+                    // Следующий выстрел через interval от СЕЙЧАС, а не от nextFireTime
+                    // Это предотвращает залповую стрельбу при скачках времени
+                    double interval = 1.0 / fireRate;
+                    nextFireTime = localTime + interval;
                 }
             }
         }
@@ -182,24 +212,24 @@ public class PlayerShip : NetworkBehaviour, IDamageable
         SpawnLocalBullet(pos, false);
     }
 
-    private void SpawnLocalBullet(Vector2 pos, bool withCollision)
+    private void SpawnLocalBullet(Vector2 pos, bool isServerBullet)
     {
         if (bulletPrefab == null) return;
         GameObject bullet = Instantiate(bulletPrefab, pos, Quaternion.identity);
 
-        if (withCollision)
+        // Устанавливаем флаг урона
+        Bullet b = bullet.GetComponent<Bullet>();
+        if (b != null)
         {
-            Collider2D bulletCollider = bullet.GetComponent<Collider2D>();
-            Collider2D shipCollider = GetComponent<Collider2D>();
-            if (bulletCollider != null && shipCollider != null)
-            {
-                Physics2D.IgnoreCollision(bulletCollider, shipCollider);
-            }
+            b.canDealDamage = isServerBullet;
         }
-        else
+
+        // Игнорируем столкновение с собственным кораблём
+        Collider2D bulletCollider = bullet.GetComponent<Collider2D>();
+        Collider2D shipCollider = GetComponent<Collider2D>();
+        if (bulletCollider != null && shipCollider != null)
         {
-            Collider2D col = bullet.GetComponent<Collider2D>();
-            if (col != null) col.enabled = false;
+            Physics2D.IgnoreCollision(bulletCollider, shipCollider);
         }
     }
 }

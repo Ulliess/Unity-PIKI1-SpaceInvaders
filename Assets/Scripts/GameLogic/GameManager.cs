@@ -131,16 +131,67 @@ public class GameManager : NetworkBehaviour
 
     public void NotifyWaveComplete(int waveNumber)
     {
-        if (IsServer)
+        if (!IsServer) return;
+        
+        bool isHealWave = (waveNumber % 3 == 0);
+        
+        if (isHealWave)
         {
-            NotifyWaveCompleteClientRpc(waveNumber);
+            HealAndReviveAllPlayers();
         }
+        
+        NotifyWaveCompleteClientRpc(waveNumber, isHealWave);
     }
 
     [ClientRpc]
-    private void NotifyWaveCompleteClientRpc(int waveNumber)
+    private void NotifyWaveCompleteClientRpc(int waveNumber, bool wasHealWave)
     {
         OnWaveComplete?.Invoke(waveNumber);
+        
+        // Дополнительное сообщение о хиле (UI подхватит через отдельное событие)
+        if (wasHealWave)
+        {
+            OnHealWave?.Invoke();
+        }
+    }
+    
+    public event Action OnHealWave;
+    
+    /// <summary>
+    /// Хилит всех живых игроков до максимума и воскрешает мёртвых.
+    /// Вызывается только на сервере.
+    /// </summary>
+    private void HealAndReviveAllPlayers()
+    {
+        if (!IsServer) return;
+        
+        // 1. Хилим живых
+        foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+        {
+            if (client.PlayerObject != null)
+            {
+                var ship = client.PlayerObject.GetComponent<PlayerShip>();
+                if (ship != null && !ship.isDead)
+                {
+                    ship.FullHeal();
+                }
+            }
+        }
+        
+        // 2. Воскрешаем мёртвых (тех, у кого нет PlayerObject)
+        var spawner = FindFirstObjectByType<PlayerSpawner>();
+        if (spawner != null)
+        {
+            foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+            {
+                if (client.PlayerObject == null)
+                {
+                    spawner.RespawnPlayer(client.ClientId);
+                }
+            }
+        }
+        
+        Debug.Log("[GameManager] Все игроки вылечены и воскрешены!");
     }
 
     public override void OnDestroy()

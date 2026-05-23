@@ -10,9 +10,9 @@ public class EnemyShooter : NetworkBehaviour
 {
     [Header("Shooting")]
     public GameObject enemyBulletPrefab; // Префаб вражеской пули
-    public float shootInterval = 3f;     // Интервал между выстрелами
-    public float shootIntervalRandom = 1f; // Рандомный разброс интервала
-    public float bulletSpeed = 6f;
+    public float shootInterval = 2f;     // Интервал между выстрелами
+    public float shootIntervalRandom = 0.7f; // Рандомный разброс интервала
+    public float bulletSpeed = 4f;
     public float bulletDamage = 15f;
 
     private float shootTimer;

@@ -193,7 +193,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
+  m_Sprite: {fileID: 3625043607559282579, guid: 19fb86013d8c24d6cb8410c0aadf30fa, type: 3}
   m_Color: {r: 0.6981132, g: 0.1284265, b: 0.1284265, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -241,7 +241,7 @@ BoxCollider2D:
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
-    oldSize: {x: 0.2, y: 0.2}
+    oldSize: {x: 1, y: 0.5}
     newSize: {x: 1, y: 1}
     adaptiveTilingThreshold: 0.5
     drawMode: 0
@@ -310,14 +310,16 @@ MonoBehaviour:
   m_GameObject: {fileID: 5816943358924021711}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2b46250d9d92cab4a84dc64bbac326ad, type: 3}
+  m_Script: {fileID: 11500000, guid: b53378526348358428ce8d52659fca4f, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::EnemyBase
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyZigzag
   ShowTopMostFoldoutHeaderGroup: 1
-  maxHealth: 100
-  moveSpeed: 2
-  collisionDamage: 25
+  maxHealth: 240
+  moveSpeed: 0.27
+  collisionDamage: 30
   explosionPrefab: {fileID: 0}
+  zigzagSpeed: 1.0
+  screenMargin: 1.0
 --- !u!114 &-2067894528559050598
 MonoBehaviour:
   m_ObjectHideFlags: 0

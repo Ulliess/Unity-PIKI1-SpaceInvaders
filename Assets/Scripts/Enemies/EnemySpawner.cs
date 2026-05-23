@@ -18,10 +18,10 @@ public class EnemySpawner : NetworkBehaviour
     [Header("Level Settings")]
     public int currentLevel = 1;
     public int baseBudget = 100;
-    public int budgetPerLevel = 40;
+    public int budgetPerLevel = 80;
 
-    public float spawnInterval = 2.0f;
-    public float minSpawnInterval = 0.8f;
+    public float spawnInterval = 1.0f;
+    public float minSpawnInterval = 0.4f;
 
     private int remainingBudget;
     private int activeEnemiesCount = 0;
@@ -58,7 +58,7 @@ public class EnemySpawner : NetworkBehaviour
         levelInProgress = true;
         
         // С каждым уровнем враги спавнятся чуть быстрее
-        spawnInterval = Mathf.Max(minSpawnInterval, 2.0f - (currentLevel * 0.1f));
+        spawnInterval = Mathf.Max(minSpawnInterval, 1.0f - (currentLevel * 0.05f));
 
         Debug.Log($"[EnemySpawner] Уровень {currentLevel} начат! Бюджет: {remainingBudget}");
     }
@@ -95,7 +95,7 @@ public class EnemySpawner : NetworkBehaviour
         activeEnemiesCount++;
 
         GameObject prefab = enemyPrefabs[prefabIndex];
-        float spawnY = Camera.main != null ? Camera.main.orthographicSize + 1.5f : 6f;
+        float spawnY = Camera.main != null ? Camera.main.orthographicSize + 0.5f : 6f;
         float x = Random.Range(-4f, 4f);
         Vector3 spawnPos = new Vector3(x, spawnY, 0f);
 
@@ -106,20 +106,21 @@ public class EnemySpawner : NetworkBehaviour
             netObj.Spawn();
             
             // Усиливаем врагов с каждым уровнем
-            float difficultyMult = 1f + (currentLevel - 1) * 0.15f; // +15% за уровень
+            float speedMult = 1f + (currentLevel - 1) * 0.15f; // +15% скорости за уровень
+            float hpMult = 1f + (currentLevel - 1) * 0.15f;    // +15% HP за уровень
             
             EnemyBase eb = enemy.GetComponent<EnemyBase>();
             if (eb != null)
             {
-                eb.moveSpeed *= difficultyMult;
-                eb.maxHealth *= difficultyMult;
+                eb.moveSpeed *= speedMult;
+                eb.maxHealth *= hpMult;
             }
             
             EnemyShooter shooter = enemy.GetComponent<EnemyShooter>();
             if (shooter != null)
             {
                 // Враги стреляют чаще с каждым уровнем
-                shooter.shootInterval = Mathf.Max(1f, shooter.shootInterval / difficultyMult);
+                shooter.shootInterval = Mathf.Max(1f, shooter.shootInterval / speedMult);
             }
         }
         else

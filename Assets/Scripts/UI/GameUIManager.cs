@@ -55,6 +55,7 @@ public class GameUIManager : MonoBehaviour
             GameManager.Instance.OnPlayerLeft += ShowPlayerLeftUI;
             GameManager.Instance.OnGameOver += ShowGameOverUI;
             GameManager.Instance.OnWaveComplete += ShowWaveCompleteUI;
+            GameManager.Instance.OnHealWave += ShowHealWaveUI;
         }
     }
     private bool isGameOver = false;
@@ -177,6 +178,7 @@ public class GameUIManager : MonoBehaviour
             GameManager.Instance.OnPlayerLeft -= ShowPlayerLeftUI;
             GameManager.Instance.OnGameOver -= ShowGameOverUI;
             GameManager.Instance.OnWaveComplete -= ShowWaveCompleteUI;
+            GameManager.Instance.OnHealWave -= ShowHealWaveUI;
         }
     }
     
@@ -198,5 +200,18 @@ public class GameUIManager : MonoBehaviour
     {
         if (waveCompleteText != null)
             waveCompleteText.gameObject.SetActive(false);
+    }
+    
+    private void ShowHealWaveUI()
+    {
+        if (waveCompleteText != null)
+        {
+            waveCompleteText.text += "\n<size=70%>Все игроки вылечены и возрождены!</size>";
+            waveCompleteText.color = new Color(0.3f, 1f, 0.5f); // Яркий зелёный
+            
+            // Даём чуть больше времени прочитать
+            CancelInvoke(nameof(HideWaveCompleteText));
+            Invoke(nameof(HideWaveCompleteText), 3.5f);
+        }
     }
 }
