@@ -226,24 +226,23 @@ public class LobbyManager : MonoBehaviour
             Debug.LogError($"[LobbyManager] Failed to leave lobby: {e.Message}");
         }
     }
+    public event Action OnBothPlayersConnected;
+
     /// <summary>
     /// Вызывается когда новый клиент подключается.
-    /// Если подключились 2 игрока — загружаем сцену Game.
     /// </summary>
-    private async void OnClientConnected(ulong clientId)
+    private void OnClientConnected(ulong clientId)
     {
         if (!NetworkManager.Singleton.IsServer) return;
 
         // Host = 1 клиент, когда подключается 2-й — их становится 2
         if (NetworkManager.Singleton.ConnectedClientsIds.Count >= 2)
         {
-            Debug.Log("[LobbyManager] 2 игрока подключены! Загружаем Game...");
+            Debug.Log("[LobbyManager] 2 игрока подключены! Открываем комнату выбора кораблей.");
             NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
             
-            // Небольшая задержка, чтобы UI успел показать статус "Подключено!"
-            await Task.Delay(1000);
-            
-            NetworkManager.Singleton.SceneManager.LoadScene("Game", UnityEngine.SceneManagement.LoadSceneMode.Single);
+            // Сообщаем UI и ReadyRoomManager, что оба игрока на месте
+            OnBothPlayersConnected?.Invoke();
         }
     }
 }

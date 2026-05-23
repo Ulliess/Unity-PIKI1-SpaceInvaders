@@ -1,5 +1,6 @@
 using UnityEngine;
 
+[RequireComponent(typeof(Rigidbody2D))]
 public class Bullet : MonoBehaviour
 {
     public float speed = 10f;
@@ -9,7 +10,7 @@ public class Bullet : MonoBehaviour
     void Update()
     {
         transform.position += Vector3.up * speed * Time.deltaTime;
-        if (transform.position.y > Camera.main.ViewportToWorldPoint(new Vector3(0, 1, 0)).y + 1f)
+        if (Camera.main != null && transform.position.y > Camera.main.ViewportToWorldPoint(new Vector3(0, 1, 0)).y + 1f)
         {
             Destroy(gameObject);
         }
@@ -17,34 +18,39 @@ public class Bullet : MonoBehaviour
 
     /// <summary>
     /// Столкновение пули с врагом.
-    /// Обрабатывается ТОЛЬКО на сервере (на клиенте у пули отключен коллайдер).
+    /// Урон наносится ТОЛЬКО на сервере, но пуля УНИЧТОЖАЕТСЯ везде.
     /// </summary>
     private void OnTriggerEnter2D(Collider2D other)
     {
         if (!other.CompareTag("Enemy")) return;
 
-        if (aoeRadius > 0f)
+        // Урон только на сервере
+        if (canDealDamage)
         {
-            // AoE-урон: бьём всех врагов в радиусе
-            Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, aoeRadius);
-            foreach (Collider2D hit in hits)
+            if (aoeRadius > 0f)
             {
-                if (hit.CompareTag("Enemy"))
+                // AoE-урон: бьём всех врагов в радиусе
+                Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, aoeRadius);
+                foreach (Collider2D hit in hits)
                 {
-                    EnemyBase hitEnemy = hit.GetComponent<EnemyBase>();
-                    if (hitEnemy != null)
-                        hitEnemy.TakeDamage(damage);
+                    if (hit.CompareTag("Enemy"))
+                    {
+                        EnemyBase hitEnemy = hit.GetComponent<EnemyBase>();
+                        if (hitEnemy != null)
+                            hitEnemy.TakeDamage(damage, shooterClientId);
+                    }
                 }
             }
-        }
-        else
-        {
-            // Обычный урон: бьём только того, в кого попали
-            EnemyBase enemy = other.GetComponent<EnemyBase>();
-            if (enemy != null)
-                enemy.TakeDamage(damage);
+            else
+            {
+                // Ищем EnemyBase в самом объекте или в родителе
+                EnemyBase enemy = other.GetComponentInParent<EnemyBase>();
+                if (enemy != null)
+                    enemy.TakeDamage(damage, shooterClientId);
+            }
         }
 
+        // Пуля уничтожается ВСЕГДА (и на сервере, и на клиенте)
         Destroy(gameObject);
     }
 }

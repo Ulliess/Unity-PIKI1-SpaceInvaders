@@ -1,124 +1,192 @@
 using UnityEngine;
 using Unity.Netcode;
-
-
-// Теперь спавнер со временем увеличивает частоту спавна 
+using System.Collections;
 
 public class EnemySpawner : NetworkBehaviour
 {
+    public static EnemySpawner Instance { get; private set; }
+
     [Header("Enemy Prefabs (порядок: Scout, Drone, Brute, Weaver, Dasher)")]
     public GameObject[] enemyPrefabs = new GameObject[5];
 
     [Header("Spawn Weights — вероятность каждого типа")]
-    [Tooltip("Должен совпадать по длине с enemyPrefabs")]
     public float[] spawnWeights = { 0.35f, 0.25f, 0.15f, 0.15f, 0.10f };
 
-    [Header("Spawn Area")]
-    [Tooltip("Оставь 0 — будет рассчитано автоматически по камере")]
-    public float spawnY = 0f;
-    public float spawnXRange = 4f;
+    [Header("Enemy Costs (must match prefabs)")]
+    public int[] enemyCosts = { 1, 2, 5, 3, 2 };
 
-    [Header("Spawn Timing")]
-    public float initialSpawnInterval = 2.5f;   // интервал в начале уровня
-    public float minSpawnInterval = 0.6f;         // минимальный интервал (предел сложности)
+    [Header("Level Settings")]
+    public int currentLevel = 1;
+    public int baseBudget = 100;
+    public int budgetPerLevel = 80;
 
-    [Tooltip("На сколько секунд уменьшается интервал каждые 30 секунд игры")]
-    public float difficultyRampPerMinute = 0.3f;
+    public float spawnInterval = 1.0f;
+    public float minSpawnInterval = 0.4f;
 
+    private int remainingBudget;
+    private int activeEnemiesCount = 0;
     private float timer = 0f;
-    private float elapsedTime = 0f;
-    private float currentInterval;
+    private bool levelInProgress = false;
+
+    private void Awake()
+    {
+        Instance = this;
+    }
 
     public override void OnNetworkSpawn()
     {
         if (!IsServer) return;
-
-        currentInterval = initialSpawnInterval;
-
-        if (Mathf.Approximately(spawnY, 0f) && Camera.main != null)
-            spawnY = Camera.main.orthographicSize + 1.5f; 
+        EnemyBase.OnEnemyDied += HandleEnemyDied;
+        
+        // Немного ждем, пока все игроки прогрузятся, и стартуем
+        Invoke(nameof(StartLevel), 2f);
     }
 
+    public override void OnNetworkDespawn()
+    {
+        if (!IsServer) return;
+        EnemyBase.OnEnemyDied -= HandleEnemyDied;
+    }
+
+    public void StartLevel()
+    {
+        if (!IsServer) return;
+        
+        remainingBudget = baseBudget + (currentLevel - 1) * budgetPerLevel;
+        activeEnemiesCount = 0;
+        timer = 0f;
+        levelInProgress = true;
+        
+        // С каждым уровнем враги спавнятся чуть быстрее
+        spawnInterval = Mathf.Max(minSpawnInterval, 1.0f - (currentLevel * 0.05f));
+
+        Debug.Log($"[EnemySpawner] Уровень {currentLevel} начат! Бюджет: {remainingBudget}");
+    }
 
     void Update()
     {
-        if (!IsServer) return;
+        if (!IsServer || !levelInProgress) return;
+        
+        // Если игра на паузе (например, открыто меню) - не спавним
+        if (GameManager.Instance != null && GameManager.Instance.IsGlobalPaused.Value) return;
 
-        elapsedTime += Time.deltaTime;
-        timer += Time.deltaTime;
-
-        // Плавно уменьшаем интервал со временем
-        float minutesPassed = elapsedTime / 60f;
-        currentInterval = Mathf.Max(
-            minSpawnInterval,
-            initialSpawnInterval - minutesPassed * difficultyRampPerMinute
-        );
-
-        if (timer >= currentInterval)
+        if (remainingBudget > 0)
         {
-            timer = 0f;
-            SpawnEnemy();
+            timer += Time.deltaTime;
+            if (timer >= spawnInterval)
+            {
+                timer = 0f;
+                SpawnEnemy();
+            }
         }
     }
 
     void SpawnEnemy()
     {
-        GameObject prefab = PickPrefab();
-        if (prefab == null)
+        int prefabIndex = PickPrefabWithinBudget(remainingBudget);
+        if (prefabIndex == -1)
         {
-            Debug.LogWarning("[EnemySpawner] Не удалось выбрать префаб — проверь настройки в инспекторе.");
+            // Не можем купить даже самого дешёвого врага - остаток бюджета сгорает
+            remainingBudget = 0;
             return;
         }
 
-        float x = Random.Range(-spawnXRange, spawnXRange);
+        remainingBudget -= enemyCosts[prefabIndex];
+        activeEnemiesCount++;
+
+        GameObject prefab = enemyPrefabs[prefabIndex];
+        float spawnY = Camera.main != null ? Camera.main.orthographicSize + 0.5f : 6f;
+        float x = Random.Range(-4f, 4f);
         Vector3 spawnPos = new Vector3(x, spawnY, 0f);
 
         GameObject enemy = Instantiate(prefab, spawnPos, Quaternion.identity);
-
         NetworkObject netObj = enemy.GetComponent<NetworkObject>();
         if (netObj != null)
         {
             netObj.Spawn();
+            
+            // Усиливаем врагов с каждым уровнем
+            float speedMult = 1f + (currentLevel - 1) * 0.15f; // +15% скорости за уровень
+            float hpMult = 1f + (currentLevel - 1) * 0.15f;    // +15% HP за уровень
+            
+            EnemyBase eb = enemy.GetComponent<EnemyBase>();
+            if (eb != null)
+            {
+                eb.moveSpeed *= speedMult;
+                eb.maxHealth *= hpMult;
+            }
+            
+            EnemyShooter shooter = enemy.GetComponent<EnemyShooter>();
+            if (shooter != null)
+            {
+                // Враги стреляют чаще с каждым уровнем
+                shooter.shootInterval = Mathf.Max(1f, shooter.shootInterval / speedMult);
+            }
         }
         else
         {
-            Debug.LogError($"[EnemySpawner] Префаб '{prefab.name}' не имеет компонента NetworkObject! Добавь его.");
+            Debug.LogError($"[EnemySpawner] Префаб '{prefab.name}' не имеет NetworkObject!");
             Destroy(enemy);
+            activeEnemiesCount--;
         }
     }
 
-    GameObject PickPrefab()
+    private void HandleEnemyDied()
     {
-        if (enemyPrefabs == null || enemyPrefabs.Length == 0) return null;
+        if (!IsServer || !levelInProgress) return;
 
-        int count = Mathf.Min(enemyPrefabs.Length, spawnWeights.Length);
-
-        // Суммируем веса только для непустых слотов
-        float totalWeight = 0f;
-        for (int i = 0; i < count; i++)
+        activeEnemiesCount--;
+        
+        // Проверка победы на уровне: деньги кончились и всех добили
+        if (remainingBudget <= 0 && activeEnemiesCount <= 0)
         {
-            if (enemyPrefabs[i] != null)
-                totalWeight += spawnWeights[i];
+            levelInProgress = false;
+            StartCoroutine(LevelCompleteRoutine());
+        }
+    }
+
+    private IEnumerator LevelCompleteRoutine()
+    {
+        Debug.Log($"[EnemySpawner] Уровень {currentLevel} ПРОЙДЕН!");
+        
+        // Уведомляем GameManager (и UI) о прохождении уровня
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.NotifyWaveComplete(currentLevel);
         }
 
-        if (Mathf.Approximately(totalWeight, 0f)) return null;
+        yield return new WaitForSeconds(3f); // Передышка 3 секунды между волнами
+        
+        currentLevel++;
+        StartLevel();
+    }
+
+    int PickPrefabWithinBudget(int budget)
+    {
+        // Ищем все префабы, которые мы можем себе позволить
+        float totalWeight = 0f;
+        for (int i = 0; i < enemyPrefabs.Length; i++)
+        {
+            if (enemyPrefabs[i] != null && enemyCosts[i] <= budget)
+            {
+                totalWeight += spawnWeights[i];
+            }
+        }
+
+        if (totalWeight <= 0f) return -1;
 
         float rand = Random.Range(0f, totalWeight);
         float cumulative = 0f;
 
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < enemyPrefabs.Length; i++)
         {
-            if (enemyPrefabs[i] == null) continue;
-
-            cumulative += spawnWeights[i];
-            if (rand <= cumulative)
-                return enemyPrefabs[i];
+            if (enemyPrefabs[i] != null && enemyCosts[i] <= budget)
+            {
+                cumulative += spawnWeights[i];
+                if (rand <= cumulative) return i;
+            }
         }
 
-        // Fallback — первый непустой префаб
-        foreach (var p in enemyPrefabs)
-            if (p != null) return p;
-
-        return null;
+        return -1;
     }
 }

@@ -8,6 +8,8 @@ using Unity.Netcode;
 public class PlayerSpawner : NetworkBehaviour
 {
     public GameObject playerPrefab;
+    [Header("Ship Prefabs (0=Circle, 1=Rect, 2=Triangle)")]
+    public GameObject[] shipPrefabs;
 
     [Header("Spawn Positions")]
     public Vector3 hostSpawnPosition = new Vector3(-3f, -3f, 0f);
@@ -37,9 +39,31 @@ public class PlayerSpawner : NetworkBehaviour
         // Определяем позицию: хост слева, клиент справа
         Vector3 spawnPos = clientId == NetworkManager.ServerClientId ? hostSpawnPosition : clientSpawnPosition;
 
-        GameObject player = Instantiate(playerPrefab, spawnPos, Quaternion.identity);
+        // Достаём выбранный корабль из ReadyRoomManager
+        int shipIndex = 0;
+        if (ReadyRoomManager.Instance != null && ReadyRoomManager.Instance.playerShipChoices.ContainsKey(clientId))
+        {
+            shipIndex = ReadyRoomManager.Instance.playerShipChoices[clientId];
+        }
+
+        // Защита от выхода за пределы массива
+        GameObject prefabToSpawn = (shipPrefabs != null && shipPrefabs.Length > 0) 
+            ? shipPrefabs[shipIndex % shipPrefabs.Length] 
+            : playerPrefab; // Fallback на старую переменную, если массив пуст
+
+        GameObject player = Instantiate(prefabToSpawn, spawnPos, Quaternion.identity);
         NetworkObject netObj = player.GetComponent<NetworkObject>();
         netObj.SpawnAsPlayerObject(clientId);
+    }
+
+    /// <summary>
+    /// Воскрешает мёртвого игрока. Вызывается из GameManager при хил-волне.
+    /// </summary>
+    public void RespawnPlayer(ulong clientId)
+    {
+        if (!IsServer) return;
+        SpawnPlayer(clientId); // SpawnPlayer уже проверяет нет ли у клиента объекта
+        Debug.Log($"[PlayerSpawner] Игрок {clientId} воскрешён!");
     }
 
     public override void OnNetworkDespawn()
