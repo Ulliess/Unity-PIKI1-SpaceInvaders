@@ -57,7 +57,7 @@ public class Bullet : MonoBehaviour
                     {
                         EnemyBase hitEnemy = hit.GetComponent<EnemyBase>();
                         if (hitEnemy != null)
-                            hitEnemy.TakeDamage(damage);
+                            hitEnemy.TakeDamage(damage, shooterClientId);
                     }
                 }
             }
@@ -66,7 +66,7 @@ public class Bullet : MonoBehaviour
                 // Ищем EnemyBase в самом объекте или в родителе
                 EnemyBase enemy = other.GetComponentInParent<EnemyBase>();
                 if (enemy != null)
-                    enemy.TakeDamage(damage);
+                    enemy.TakeDamage(damage, shooterClientId);
             }
         }
 

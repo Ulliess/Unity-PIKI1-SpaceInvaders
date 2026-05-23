@@ -21,13 +21,13 @@ public class GameUIManager : MonoBehaviour
     public TMPro.TMP_Text waveCompleteText;     // "Уровень X пройден!"
 
     [Header("Text — End Game Scores")]
-    [Tooltip("Текст под результатом на панели EndGame. Формат: YOU: 350  |  RIVAL: 420")]
+    [Tooltip("Текст под результатом на панели EndGame. Формат: ВЫ: 350  |  НАПАРНИК: 420")]
     public TMPro.TMP_Text endGameScoresText;
 
     [Header("Score HUD (live)")]
     [Tooltip("TMP_Text в левом верхнем углу — очки локального игрока")]
     public TMPro.TMP_Text hudYouScoreText;
-    [Tooltip("TMP_Text в правом верхнем углу — очки соперника")]
+    [Tooltip("TMP_Text в правом верхнем углу — очки напарника")]
     public TMPro.TMP_Text hudRivalScoreText;
 
     // ───────────────────────────────────────────────────────────────────────
@@ -40,8 +40,25 @@ public class GameUIManager : MonoBehaviour
         if (waveCompleteText != null) waveCompleteText.gameObject.SetActive(false);
 
         // Инициализируем HUD нулями
-        SetHudText(hudYouScoreText,   "YOU",   0);
-        SetHudText(hudRivalScoreText, "RIVAL", 0);
+        // Хост слева — ВЫ слева, клиент справа — ВЫ справа
+        bool isHost = Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.IsServer;
+        if (isHost)
+        {
+            SetHudText(hudYouScoreText,   "ВЫ",       0);
+            SetHudText(hudRivalScoreText, "НАПАРНИК",  0);
+        }
+        else if (hudYouScoreText != null && hudRivalScoreText != null)
+        {
+            // Меняем местами и текст, и цвета
+            var youColor = hudYouScoreText.color;
+            var rivalColor = hudRivalScoreText.color;
+            
+            SetHudText(hudYouScoreText,   "НАПАРНИК",  0);
+            SetHudText(hudRivalScoreText, "ВЫ",        0);
+            
+            hudYouScoreText.color = rivalColor;
+            hudRivalScoreText.color = youColor;
+        }
 
         if (resumeButton != null)      resumeButton.onClick.AddListener(OnResumeClicked);
         if (leaveButton != null)       leaveButton.onClick.AddListener(OnLeaveClicked);
@@ -78,8 +95,17 @@ public class GameUIManager : MonoBehaviour
     {
         if (ScoreManager.Instance == null) return;
 
-        SetHudText(hudYouScoreText,   "YOU",   ScoreManager.Instance.GetMyScore());
-        SetHudText(hudRivalScoreText, "RIVAL", ScoreManager.Instance.GetRivalScore());
+        bool isHost = Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.IsServer;
+        if (isHost)
+        {
+            SetHudText(hudYouScoreText,   "ВЫ",       ScoreManager.Instance.GetMyScore());
+            SetHudText(hudRivalScoreText, "НАПАРНИК",  ScoreManager.Instance.GetRivalScore());
+        }
+        else
+        {
+            SetHudText(hudYouScoreText,   "НАПАРНИК",  ScoreManager.Instance.GetRivalScore());
+            SetHudText(hudRivalScoreText, "ВЫ",        ScoreManager.Instance.GetMyScore());
+        }
     }
 
     /// Вспомогательный метод — формирует строку "LABEL\n0000"
@@ -119,7 +145,7 @@ public class GameUIManager : MonoBehaviour
         {
             int myScore    = ScoreManager.Instance.GetMyScore();
             int rivalScore = ScoreManager.Instance.GetRivalScore();
-            endGameScoresText.text = $"Вы: {myScore}     Соперник: {rivalScore}";
+            endGameScoresText.text = $"Вы: {myScore}     Напарник: {rivalScore}";
         }
     }
 
