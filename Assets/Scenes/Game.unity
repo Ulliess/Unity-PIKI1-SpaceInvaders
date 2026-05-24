@@ -507,7 +507,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.039, g: 0.055, b: 0.102, a: 0}
+  m_BackGroundColor: {r: 0.06, g: 0.08, b: 0.15, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -586,7 +586,7 @@ MonoBehaviour:
     m_Bits: 1
   m_VolumeTrigger: {fileID: 0}
   m_VolumeFrameworkUpdateModeOption: 2
-  m_RenderPostProcessing: 0
+  m_RenderPostProcessing: 1
   m_Antialiasing: 0
   m_AntialiasingQuality: 2
   m_StopNaN: 0
@@ -1916,13 +1916,13 @@ MonoBehaviour:
   - {fileID: 5816943358924021711, guid: 171aee3dfd7d0334fbf30e97c5a347f2, type: 3}
   - {fileID: 5816943358924021711, guid: 1bb6b6e606abc234080f6dd1852a1198, type: 3}
   - {fileID: 5816943358924021711, guid: e85da433056092b47b6b6228a99f187c, type: 3}
-  - {fileID: 5816943358924021711, guid: 171aee3dfd7d0334fbf30e97c5a347f2, type: 3}
+  - {fileID: 5816943358924021711, guid: 4a8bdc1d01046aa48aeb9a482ea8ded6, type: 3}
   spawnWeights:
-  - 0.35
-  - 0.25
+  - 0.3
+  - 0.2
   - 0.15
   - 0.15
-  - 0.1
+  - 0.2
   enemyCosts: 0100000002000000050000000300000002000000
   currentLevel: 1
   baseBudget: 10
@@ -2753,3 +2753,53 @@ SceneRoots:
   - {fileID: 155438129}
   - {fileID: 1495511284}
   - {fileID: 1808186879}
+  - {fileID: 900000004}
+--- !u!1 &900000001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 900000004}
+  - component: {fileID: 900000002}
+  m_Layer: 0
+  m_Name: Global Volume
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &900000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 900000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 172515602e62fb746b5d573b38a5fe58, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.Volume
+  m_IsGlobal: 1
+  priority: 0
+  blendDistance: 0
+  weight: 1
+  sharedProfile: {fileID: 11400000, guid: 338644a71c20d477d8a49a7f9bd00189, type: 2}
+--- !u!4 &900000004
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 900000001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}

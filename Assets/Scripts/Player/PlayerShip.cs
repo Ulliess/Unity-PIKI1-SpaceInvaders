@@ -181,10 +181,20 @@ public class PlayerShip : NetworkBehaviour, IDamageable
 
     /// <summary>
     /// Добавлен ServerRpcParams — сервер узнаёт ClientId стрелявшего и передаёт его пуле.
+    /// Серверный rate-limit предотвращает залповую стрельбу при сетевых скачках.
     /// </summary>
+    private double serverNextFireTime = 0;
+    
     [ServerRpc]
     private void ShootServerRpc(Vector2 pos, ServerRpcParams serverRpcParams = default)
     {
+        // Серверный rate-limit: не чаще чем fireRate (с небольшим запасом на джиттер)
+        double now = NetworkManager.Singleton.ServerTime.Time;
+        double minInterval = (1.0 / fireRate) * 0.8; // 20% tolerance
+        if (now < serverNextFireTime - minInterval)
+            return;
+        serverNextFireTime = now + (1.0 / fireRate);
+        
         ulong shooterId = serverRpcParams.Receive.SenderClientId;
 
         // Серверная пуля: наносит урон и несёт shooterClientId для начисления очков

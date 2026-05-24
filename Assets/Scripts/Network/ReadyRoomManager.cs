@@ -45,7 +45,6 @@ public class ReadyRoomManager : NetworkBehaviour
 
     public void SelectShip(int shipIndex)
     {
-        // Отправляем серверу наш выбор
         SelectShipServerRpc(shipIndex);
     }
 

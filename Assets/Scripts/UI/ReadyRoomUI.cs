@@ -59,11 +59,38 @@ public class ReadyRoomUI : MonoBehaviour
         }
         
         readyRoomPanel.SetActive(true);
-        statusText.text = "Выбери корабль и нажми ГОТОВ";
+        
+        // Прячем кнопки пока сеть не готова
+        circleButton.gameObject.SetActive(false);
+        rectButton.gameObject.SetActive(false);
+        triangleButton.gameObject.SetActive(false);
+        readyButton.gameObject.SetActive(false);
+        statusText.text = "Подключение...";
+        
+        // Проверяем готовность сети каждые 0.2 сек
+        InvokeRepeating(nameof(CheckNetworkReady), 0.1f, 0.2f);
+    }
+    
+    private void CheckNetworkReady()
+    {
+        if (ReadyRoomManager.Instance != null && ReadyRoomManager.Instance.IsSpawned)
+        {
+            CancelInvoke(nameof(CheckNetworkReady));
+            circleButton.gameObject.SetActive(true);
+            rectButton.gameObject.SetActive(true);
+            triangleButton.gameObject.SetActive(true);
+            statusText.text = "Выбери корабль и нажми ГОТОВ";
+        }
     }
 
     private void SelectShip(int index)
     {
+        if (ReadyRoomManager.Instance == null || !ReadyRoomManager.Instance.IsSpawned)
+        {
+            statusText.text = "Подключение... Попробуйте ещё раз";
+            return;
+        }
+        
         ReadyRoomManager.Instance.SelectShip(index);
         
         // Прячем кнопки кораблей, показываем кнопку Готов
