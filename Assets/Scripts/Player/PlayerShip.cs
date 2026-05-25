@@ -41,6 +41,11 @@ public class PlayerShip : NetworkBehaviour, IDamageable
             isDead = true;
             DieClientRpc(transform.position);
 
+            // Уведомляем ScoreManager о гибели ДО деспавна (OwnerClientId ещё доступен)
+            if (ScoreManager.Instance != null)
+                ScoreManager.Instance.NotifyPlayerDied(OwnerClientId);
+
+            // Проверяем, остались ли живые игроки
             bool anyAlive = false;
             foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
             {
@@ -54,9 +59,7 @@ public class PlayerShip : NetworkBehaviour, IDamageable
             }
 
             if (!anyAlive && GameManager.Instance != null)
-            {
                 GameManager.Instance.TriggerGameOver(false);
-            }
 
             if (NetworkObject.IsSpawned)
                 NetworkObject.Despawn();

@@ -35,36 +35,36 @@ public class GameUIManager : MonoBehaviour
 
     private void Start()
     {
-        if (pausePanel != null)   pausePanel.SetActive(false);
-        if (endGamePanel != null) endGamePanel.SetActive(false);
+        if (pausePanel != null)       pausePanel.SetActive(false);
+        if (endGamePanel != null)     endGamePanel.SetActive(false);
         if (waveCompleteText != null) waveCompleteText.gameObject.SetActive(false);
 
-        // Инициализируем HUD нулями
-        // Хост слева — ВЫ слева, клиент справа — ВЫ справа
-        bool isHost = Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.IsServer;
+        // Инициализируем HUD нулями с правильными подписями для каждого игрока.
+        // Хост: слева ВЫ, справа НАПАРНИК.
+        // Клиент: слева НАПАРНИК, справа ВЫ (и меняем цвета местами).
+        bool isHost = Unity.Netcode.NetworkManager.Singleton != null
+                      && Unity.Netcode.NetworkManager.Singleton.IsServer;
         if (isHost)
         {
-            SetHudText(hudYouScoreText,   "ВЫ",       0);
-            SetHudText(hudRivalScoreText, "НАПАРНИК",  0);
+            SetHudText(hudYouScoreText,   "ВЫ",       0, 0);
+            SetHudText(hudRivalScoreText, "НАПАРНИК",  0, 0);
         }
         else if (hudYouScoreText != null && hudRivalScoreText != null)
         {
-            // Меняем местами и текст, и цвета
-            var youColor = hudYouScoreText.color;
+            var youColor   = hudYouScoreText.color;
             var rivalColor = hudRivalScoreText.color;
-            
-            SetHudText(hudYouScoreText,   "НАПАРНИК",  0);
-            SetHudText(hudRivalScoreText, "ВЫ",        0);
-            
-            hudYouScoreText.color = rivalColor;
+
+            SetHudText(hudYouScoreText,   "НАПАРНИК",  0, 0);
+            SetHudText(hudRivalScoreText, "ВЫ",        0, 0);
+
+            hudYouScoreText.color   = rivalColor;
             hudRivalScoreText.color = youColor;
         }
 
-        if (resumeButton != null)      resumeButton.onClick.AddListener(OnResumeClicked);
-        if (leaveButton != null)       leaveButton.onClick.AddListener(OnLeaveClicked);
+        if (resumeButton != null)       resumeButton.onClick.AddListener(OnResumeClicked);
+        if (leaveButton != null)        leaveButton.onClick.AddListener(OnLeaveClicked);
         if (endGameLeaveButton != null) endGameLeaveButton.onClick.AddListener(OnLeaveClicked);
 
-        // Ждём инициализации сетевых менеджеров
         Invoke(nameof(SubscribeToManagers), 0.5f);
     }
 
@@ -95,24 +95,32 @@ public class GameUIManager : MonoBehaviour
     {
         if (ScoreManager.Instance == null) return;
 
-        bool isHost = Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.IsServer;
+        bool isHost = Unity.Netcode.NetworkManager.Singleton != null
+                      && Unity.Netcode.NetworkManager.Singleton.IsServer;
+
+        // Хост: слева ВЫ (Player0), справа НАПАРНИК (Player1)
+        // Клиент: слева НАПАРНИК (Player0), справа ВЫ (Player1)
         if (isHost)
         {
-            SetHudText(hudYouScoreText,   "ВЫ",       ScoreManager.Instance.GetMyScore());
-            SetHudText(hudRivalScoreText, "НАПАРНИК",  ScoreManager.Instance.GetRivalScore());
+            SetHudText(hudYouScoreText,   "ВЫ",
+                ScoreManager.Instance.GetMyLevelScore(),    ScoreManager.Instance.GetMyWinPoints());
+            SetHudText(hudRivalScoreText, "НАПАРНИК",
+                ScoreManager.Instance.GetRivalLevelScore(), ScoreManager.Instance.GetRivalWinPoints());
         }
         else
         {
-            SetHudText(hudYouScoreText,   "НАПАРНИК",  ScoreManager.Instance.GetRivalScore());
-            SetHudText(hudRivalScoreText, "ВЫ",        ScoreManager.Instance.GetMyScore());
+            SetHudText(hudYouScoreText,   "НАПАРНИК",
+                ScoreManager.Instance.GetRivalLevelScore(), ScoreManager.Instance.GetRivalWinPoints());
+            SetHudText(hudRivalScoreText, "ВЫ",
+                ScoreManager.Instance.GetMyLevelScore(),    ScoreManager.Instance.GetMyWinPoints());
         }
     }
 
-    /// Вспомогательный метод — формирует строку "LABEL\n0000"
-    private void SetHudText(TMPro.TMP_Text target, string label, int score)
+    /// <summary>Формирует строку вида "ВЫ\n⚔ 350    ★ 3".</summary>
+    private void SetHudText(TMPro.TMP_Text target, string label, int levelScore, int winPoints)
     {
         if (target == null) return;
-        target.text = $"{label}\n{score}";
+        target.text = $"{label}\n⚔ {levelScore}    ★ {winPoints}";
     }
 
     // ── Game Over ────────────────────────────────────────────────────────────
@@ -125,12 +133,10 @@ public class GameUIManager : MonoBehaviour
         if (endGamePanel != null) endGamePanel.SetActive(true);
 
         if (otherPanelsToHide != null)
-        {
             foreach (var panel in otherPanelsToHide)
                 if (panel != null) panel.SetActive(false);
-        }
 
-        // Скрываем HUD очков — они будут показаны в панели итогов
+        // Прячем HUD — итоги показаны в EndGamePanel
         if (hudYouScoreText != null)   hudYouScoreText.gameObject.SetActive(false);
         if (hudRivalScoreText != null) hudRivalScoreText.gameObject.SetActive(false);
 
@@ -140,12 +146,12 @@ public class GameUIManager : MonoBehaviour
             endGameResultText.color = isWin ? Color.green : Color.red;
         }
 
-        // Финальные очки обоих игроков
+        // Финальные победные очки обоих игроков
         if (endGameScoresText != null && ScoreManager.Instance != null)
         {
-            int myScore    = ScoreManager.Instance.GetMyScore();
-            int rivalScore = ScoreManager.Instance.GetRivalScore();
-            endGameScoresText.text = $"Вы: {myScore}     Напарник: {rivalScore}";
+            int myWins    = ScoreManager.Instance.GetMyWinPoints();
+            int rivalWins = ScoreManager.Instance.GetRivalWinPoints();
+            endGameScoresText.text = $"Вы: {myWins} ★     Напарник: {rivalWins} ★";
         }
     }
 

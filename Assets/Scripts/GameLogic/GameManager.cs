@@ -15,16 +15,13 @@ public class GameManager : NetworkBehaviour
     public event Action<string, bool> OnPlayerLeft; // <сообщение, можно_ли_продолжить>
     public event Action<bool> OnGameOver; // true = победа, false = поражение
     public event Action<int> OnWaveComplete; // номер пройденного уровня
+    public event Action OnHealWave;
 
     public bool IsLocalMenuOpen { get; private set; }
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
     }
 
@@ -49,9 +46,7 @@ public class GameManager : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         if (NetworkManager.Singleton != null)
-        {
             NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
-        }
     }
 
     private void OnClientDisconnected(ulong clientId)
@@ -117,9 +112,7 @@ public class GameManager : NetworkBehaviour
     public void TriggerGameOver(bool isWin)
     {
         if (IsServer)
-        {
             TriggerGameOverClientRpc(isWin);
-        }
     }
 
     [ClientRpc]
@@ -132,14 +125,20 @@ public class GameManager : NetworkBehaviour
     public void NotifyWaveComplete(int waveNumber)
     {
         if (!IsServer) return;
-        
+
+        // 1. Подвести итоги уровня: сравнить очки, начислить победные очки
+        if (ScoreManager.Instance != null)
+            ScoreManager.Instance.EvaluateLevelEnd();
+
+        // 2. Хил-волна каждые 3 уровня (воскрешает мёртвых после подведения итогов)
         bool isHealWave = (waveNumber % 3 == 0);
-        
         if (isHealWave)
-        {
             HealAndReviveAllPlayers();
-        }
-        
+
+        // 3. Сбросить очки за уровень для следующего уровня
+        if (ScoreManager.Instance != null)
+            ScoreManager.Instance.ResetLevelScores();
+
         NotifyWaveCompleteClientRpc(waveNumber, isHealWave);
     }
 
@@ -154,9 +153,7 @@ public class GameManager : NetworkBehaviour
             OnHealWave?.Invoke();
         }
     }
-    
-    public event Action OnHealWave;
-    
+
     /// <summary>
     /// Хилит всех живых игроков до максимума и воскрешает мёртвых.
     /// Вызывается только на сервере.
